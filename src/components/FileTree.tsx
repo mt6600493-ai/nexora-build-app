@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronRight, File, Folder, FolderOpen, Trash2 } from "lucide-react";
 
-type Node = { name: string; path: string; children?: Node[] };
+type Node = { name: string; path: string; children?: Node[] | undefined };
 
 function build(paths: string[]): Node[] {
   const root: Node = { name: "", path: "", children: [] };
@@ -12,8 +12,8 @@ function build(paths: string[]): Node[] {
       const path = parts.slice(0, i + 1).join("/");
       const leaf = i === parts.length - 1;
       let n = cur.children!.find((c) => c.name === part && !!c.children === !leaf);
-      if (!n) { n = { name: part, path, children: leaf ? undefined : [] }; cur.children!.push(n); }
-      cur = n;
+      if (!n) { n = { name: part, path, children: leaf ? undefined : [] } as Node; cur.children!.push(n); }
+      cur = n!;
     });
   }
   const sort = (ns: Node[]): Node[] =>
