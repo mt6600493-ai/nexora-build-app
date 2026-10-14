@@ -14,8 +14,11 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedNewRouteImport } from './routes/_authenticated/new'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as AuthenticatedProjectIdRouteImport } from './routes/_authenticated/project.$id'
 
@@ -43,6 +46,17 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedIntegrationsRoute =
+  AuthenticatedIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNewRoute = AuthenticatedNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -51,6 +65,11 @@ const AuthenticatedNewRoute = AuthenticatedNewRouteImport.update({
 const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
@@ -69,8 +88,11 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/help': typeof AuthenticatedHelpRoute
+  '/integrations': typeof AuthenticatedIntegrationsRoute
   '/new': typeof AuthenticatedNewRoute
   '/projects': typeof AuthenticatedProjectsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/project/$id': typeof AuthenticatedProjectIdRoute
 }
@@ -79,8 +101,11 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/help': typeof AuthenticatedHelpRoute
+  '/integrations': typeof AuthenticatedIntegrationsRoute
   '/new': typeof AuthenticatedNewRoute
   '/projects': typeof AuthenticatedProjectsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/project/$id': typeof AuthenticatedProjectIdRoute
 }
@@ -91,8 +116,11 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/help': typeof AuthenticatedHelpRoute
+  '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/new': typeof AuthenticatedNewRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/_authenticated/project/$id': typeof AuthenticatedProjectIdRoute
 }
@@ -103,8 +131,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/help'
+    | '/integrations'
     | '/new'
     | '/projects'
+    | '/settings'
     | '/api/generate'
     | '/project/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -113,8 +144,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/help'
+    | '/integrations'
     | '/new'
     | '/projects'
+    | '/settings'
     | '/api/generate'
     | '/project/$id'
   id:
@@ -124,8 +158,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_authenticated/dashboard'
+    | '/_authenticated/help'
+    | '/_authenticated/integrations'
     | '/_authenticated/new'
     | '/_authenticated/projects'
+    | '/_authenticated/settings'
     | '/api/generate'
     | '/_authenticated/project/$id'
   fileRoutesById: FileRoutesById
@@ -175,6 +212,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/help': {
+      id: '/_authenticated/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof AuthenticatedHelpRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/integrations': {
+      id: '/_authenticated/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/new': {
       id: '/_authenticated/new'
       path: '/new'
@@ -187,6 +238,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof AuthenticatedProjectsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/generate': {
@@ -208,15 +266,21 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
+  AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedNewRoute: typeof AuthenticatedNewRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedProjectIdRoute: typeof AuthenticatedProjectIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedHelpRoute: AuthenticatedHelpRoute,
+  AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedNewRoute: AuthenticatedNewRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedProjectIdRoute: AuthenticatedProjectIdRoute,
 }
 
