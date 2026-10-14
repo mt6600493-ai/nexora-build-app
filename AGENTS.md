@@ -8,3 +8,9 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Nexora AI architecture
+- Generated projects are stored as a path→content JSON map on `public.projects` (RLS per user); the instant preview inlines local CSS/JS into an iframe srcdoc, so AI output targets static HTML/CSS/JS with no build step.
+- AI generation streams from the `/api/generate` server route, which checks the caller's bearer token itself and returns plain text with `<file path>` blocks parsed on the client; this keeps one simple format for streaming, parsing and saving.
+- GitHub and ZIP imports run in the browser against public endpoints, so no secrets are needed; Lovable, Vercel and Netlify imports go through their GitHub repo or a ZIP.
+- No credit system: abuse protection is a per-user rate limit in the generate route.
