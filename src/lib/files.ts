@@ -10,7 +10,7 @@ export function parseGenerated(text: string): { files: FileMap; summary: string 
   let firstIdx = -1;
   while ((m = re.exec(text))) {
     if (firstIdx < 0) firstIdx = m.index;
-    files[m[1].replace(/^\.?\//, "")] = m[2].replace(/\n$/, "");
+    files[m[1]!.replace(/^\.?\//, "")] = m[2]!.replace(/\n$/, "");
   }
   const tail = text.replace(/<file path="[^"]+">[\s\S]*?(<\/file>|$)/g, "").trim();
   return { files, summary: tail };
@@ -29,12 +29,12 @@ export function buildPreview(files: FileMap, page = "index.html"): string | null
   if (!htmlPath) return null;
   const base = htmlPath.includes("/") ? htmlPath.slice(0, htmlPath.lastIndexOf("/") + 1) : "";
   const resolve = (href: string) => {
-    const clean = href.replace(/^\.\//, "").split("?")[0];
+    const clean = href.replace(/^\.\//, "").split("?")[0] ?? "";
     if (/^(https?:)?\/\//.test(clean) || clean.startsWith("data:")) return null;
     const p = clean.startsWith("/") ? clean.slice(1) : base + clean;
     return files[p] != null ? p : files[clean.replace(/^\//, "")] != null ? clean.replace(/^\//, "") : null;
   };
-  let html = files[htmlPath];
+  let html = files[htmlPath]!;
   html = html.replace(/<link\b[^>]*href=["']([^"']+)["'][^>]*>/gi, (tag, href) => {
     if (!/stylesheet/i.test(tag)) return tag;
     const p = resolve(href);
@@ -44,7 +44,7 @@ export function buildPreview(files: FileMap, page = "index.html"): string | null
     const p = resolve(src);
     if (!p) return tag;
     const attrs = `${a} ${b}`.replace(/\s+/g, " ").trim();
-    return `<script ${attrs} data-src="${p}">\n${files[p].replace(/<\/script>/gi, "<\\/script>")}\n</script>`;
+    return `<script ${attrs} data-src="${p}">\n${files[p]!.replace(/<\/script>/gi, "<\\/script>")}\n</script>`;
   });
   // Intercept internal links between html pages so navigation stays inside the preview.
   const nav = `<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(!h||h.startsWith('#')||/^(https?:|mailto:|tel:)/.test(h))return;if(/\\.html?$/.test(h.split('?')[0])){e.preventDefault();parent.postMessage({type:'nexora-nav',href:h},'*');}});window.onerror=function(m,s,l){parent.postMessage({type:'nexora-error',message:String(m)+' (line '+l+')'},'*');};</script>`;
@@ -92,7 +92,7 @@ export function parseGithubUrl(url: string): { owner: string; repo: string; bran
   const m = url.trim().match(/github\.com[/:]([^/]+)\/([^/#?]+?)(?:\.git)?(?:\/tree\/([^/?#]+))?\/?(?:[?#].*)?$/i)
     ?? url.trim().match(/^([\w.-]+)\/([\w.-]+)$/);
   if (!m) return null;
-  return { owner: m[1], repo: m[2], branch: m[3] };
+  return { owner: m[1]!, repo: m[2]!, ...(m[3] ? { branch: m[3] } : {}) };
 }
 
 /** Import a public GitHub repository using the public GitHub API (no token needed for public repos). */

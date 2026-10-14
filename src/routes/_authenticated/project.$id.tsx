@@ -53,7 +53,7 @@ function Workspace() {
   const [deployOpen, setDeployOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const started = useRef(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -69,7 +69,7 @@ function Workspace() {
 
   useEffect(() => {
     const h = (e: MessageEvent) => {
-      if (e.data?.type === "nexora-nav") setPage(String(e.data.href).replace(/^\.?\//, "").split("?")[0]);
+      if (e.data?.type === "nexora-nav") setPage(String(e.data.href).replace(/^\.?\//, "").split("?")[0] ?? "index.html");
       if (e.data?.type === "nexora-error") setPreviewErr(e.data.message);
     };
     window.addEventListener("message", h);
@@ -102,7 +102,7 @@ function Workspace() {
     } else {
       nextFiles = { ...baseFiles, ...out };
       setFiles(nextFiles);
-      if (!active || !nextFiles[active]) setActive(changed.find((c) => c.endsWith("index.html")) ?? changed[0]);
+      if (!active || !nextFiles[active]) setActive(changed.find((c) => c.endsWith("index.html")) ?? changed[0] ?? null);
       setPreviewKey((k) => k + 1);
       reply = { role: "assistant", content: `${summary || "Done."}\n\n_Updated ${changed.length} file${changed.length > 1 ? "s" : ""}: ${changed.map((c) => `\`${c}\``).join(", ")}_${error ? `\n\n⚠️ ${error}` : ""}` };
     }
@@ -143,7 +143,7 @@ function Workspace() {
   function newFile() {
     const p = window.prompt("New file path (e.g. about.html or js/app.js)")?.trim().replace(/^\/+/, "");
     if (!p) return;
-    if (files[p] != null) return toast.error("That file already exists.");
+    if (files[p] != null) { toast.error("That file already exists."); return; }
     const next = { ...files, [p]: "" };
     setFiles(next); setActive(p); setView("code"); persist({ files: next });
   }
@@ -199,7 +199,7 @@ function Workspace() {
           <div className="flex gap-2.5 text-sm"><LogoMark className="h-6 w-6 shrink-0 animate-pulse" />
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />{Object.keys(live.files).length ? "Writing code…" : "Thinking…"}</div>
-              {Object.keys(live.files).map((f) => <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground"><FileCode className="h-3 w-3" />{f} <span className="opacity-60">({live.files[f].split("\n").length} lines)</span></div>)}
+              {Object.keys(live.files).map((f) => <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground"><FileCode className="h-3 w-3" />{f} <span className="opacity-60">({live.files[f]!.split("\n").length} lines)</span></div>)}
             </div>
           </div>
         )}

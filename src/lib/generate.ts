@@ -17,7 +17,7 @@ export async function streamGenerate(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ messages: messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), files }),
-      signal,
+      signal: signal ?? null,
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") return { text: "", error: "Stopped." };

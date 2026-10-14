@@ -23,7 +23,7 @@ function Help() {
       <h1 className="text-2xl font-bold">Help & Support</h1>
       <p className="mt-1 text-sm text-muted-foreground">Find answers, tutorials and guides.</p>
       <Accordion type="single" collapsible className="mt-6 max-w-3xl rounded-2xl border border-border bg-card px-5">
-        {FAQ.map(([q, a]) => (
+        {FAQ.map(([q = "", a = ""]) => (
           <AccordionItem key={q} value={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent className="text-muted-foreground">{a}</AccordionContent></AccordionItem>
         ))}
       </Accordion>

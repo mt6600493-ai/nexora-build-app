@@ -44,7 +44,7 @@ function NewProject() {
   }, []);
 
   async function startAI(text: string, source = "ai", name?: string) {
-    if (!text.trim() || !user) return toast.error("Describe what you'd like to build.");
+    if (!text.trim() || !user) { toast.error("Describe what you'd like to build."); return; }
     setBusy(true);
     try {
       const id = await createProject({ user_id: user.id, name: name ?? nameFromPrompt(text), description: text, source, messages: [{ role: "user", content: text }] });
