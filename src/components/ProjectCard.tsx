@@ -1,9 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Globe, Github, FileArchive, Sparkles as _s, Code2 } from "lucide-react";
+import { Globe, Github, FileArchive, Code2 } from "lucide-react";
 import { timeAgo, type Project } from "@/lib/projects";
 import { buildPreview } from "@/lib/files";
 
-void _s;
 const ICON: Record<string, typeof Globe> = { github: Github, zip: FileArchive, lovable: Github, vercel: Github, netlify: Github };
 
 export function ProjectCard({ p }: { p: Project }) {
