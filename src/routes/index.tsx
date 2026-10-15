@@ -46,6 +46,7 @@ function Landing() {
         <nav className="hidden gap-8 text-sm text-muted-foreground md:flex">
           <a href="#features" className="hover:text-foreground">Features</a>
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
+          <Link to="/free-ai-game-maker" className="hover:text-foreground">AI Game Maker</Link>
           <Link to="/help" className="hover:text-foreground">Docs</Link>
         </nav>
         <div className="flex gap-2">

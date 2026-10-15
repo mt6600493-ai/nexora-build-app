@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as FreeAiGameMakerRouteImport } from './routes/free-ai-game-maker'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
@@ -34,6 +35,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreeAiGameMakerRoute = FreeAiGameMakerRouteImport.update({
+  id: '/free-ai-game-maker',
+  path: '/free-ai-game-maker',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -86,6 +92,7 @@ const AuthenticatedProjectIdRoute = AuthenticatedProjectIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/free-ai-game-maker': typeof FreeAiGameMakerRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/free-ai-game-maker': typeof FreeAiGameMakerRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/help': typeof AuthenticatedHelpRoute
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/free-ai-game-maker': typeof FreeAiGameMakerRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/free-ai-game-maker'
     | '/reset-password'
     | '/dashboard'
     | '/help'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/free-ai-game-maker'
     | '/reset-password'
     | '/dashboard'
     | '/help'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/free-ai-game-maker'
     | '/reset-password'
     | '/_authenticated/dashboard'
     | '/_authenticated/help'
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  FreeAiGameMakerRoute: typeof FreeAiGameMakerRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
 }
@@ -196,6 +209,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/free-ai-game-maker': {
+      id: '/free-ai-game-maker'
+      path: '/free-ai-game-maker'
+      fullPath: '/free-ai-game-maker'
+      preLoaderRoute: typeof FreeAiGameMakerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -291,6 +311,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  FreeAiGameMakerRoute: FreeAiGameMakerRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiGenerateRoute: ApiGenerateRoute,
 }
