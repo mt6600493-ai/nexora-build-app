@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://create-ai-zone.lovable.app/sitemap.xml
