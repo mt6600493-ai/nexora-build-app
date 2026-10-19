@@ -24,7 +24,7 @@ const MAX_FILES = 300;
 const MAX_SIZE = 300_000;
 
 /** Turn index.html + linked local css/js into a self-contained srcdoc. */
-export function buildPreview(files: FileMap, page = "index.html"): string | null {
+export function buildPreview(files: FileMap, page = "index.html", opts: { standalone?: boolean } = {}): string | null {
   const htmlPath = files[page] != null ? page : Object.keys(files).find((p) => p.endsWith("index.html")) ?? Object.keys(files).find((p) => p.endsWith(".html"));
   if (!htmlPath) return null;
   const base = htmlPath.includes("/") ? htmlPath.slice(0, htmlPath.lastIndexOf("/") + 1) : "";
@@ -48,6 +48,7 @@ export function buildPreview(files: FileMap, page = "index.html"): string | null
   });
   // Intercept internal links between html pages so navigation stays inside the preview.
   const nav = `<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(!h||h.startsWith('#')||/^(https?:|mailto:|tel:)/.test(h))return;if(/\\.html?$/.test(h.split('?')[0])){e.preventDefault();parent.postMessage({type:'nexora-nav',href:h},'*');}});window.onerror=function(m,s,l){parent.postMessage({type:'nexora-error',message:String(m)+' (line '+l+')'},'*');};</script>`;
+  if (opts.standalone) return html;
   return html.includes("<head>") ? html.replace("<head>", `<head>${nav}`) : nav + html;
 }
 
