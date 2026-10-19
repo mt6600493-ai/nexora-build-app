@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TEMPLATES } from "@/lib/templates";
+import { TEMPLATES, GAME_TEMPLATES } from "@/lib/templates";
+import { VoiceButton } from "@/components/VoiceButton";
 import { createProject, nameFromPrompt } from "@/lib/projects";
 import { detectFramework, filesFromGithub, filesFromZip, type FileMap } from "@/lib/files";
 import { useAuth } from "@/lib/auth";
@@ -60,7 +61,7 @@ function NewProject() {
     const id = await createProject({
       user_id: user.id, name, source, files, framework: detectFramework(files),
       description: `Imported from ${source}`,
-      messages: [{ role: "assistant", content: `Imported ${count} files from ${source}. You can rebuild, edit or extend it — just tell me what to change.` }],
+      messages: [{ role: "assistant", content: `Imported ${count} files from ${source}. This is your own independent copy, saved permanently in your account — the original is never touched. Tell me what to change, or edit the code directly.` }],
     });
     qc.invalidateQueries({ queryKey: ["projects"] });
     toast.success(`Imported ${count} files`);
@@ -90,8 +91,9 @@ function NewProject() {
     <AppShell>
       <h1 className="text-2xl font-bold">Create New Project</h1>
       <Tabs defaultValue="ai" className="mt-6">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="ai">Create with AI</TabsTrigger>
+          <TabsTrigger value="games">Games</TabsTrigger>
           <TabsTrigger value="template">From Template</TabsTrigger>
           <TabsTrigger value="import">Import Project</TabsTrigger>
         </TabsList>
@@ -102,9 +104,27 @@ function NewProject() {
               onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startAI(prompt); }}
               placeholder="Describe your app or website in detail…  e.g. Create a modern e-commerce website with product search, cart and checkout."
               className="border-0 bg-transparent text-base focus-visible:ring-0" />
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-xs text-muted-foreground">Write or speak in any language — Nexora replies in yours.</span>
+              <VoiceButton disabled={busy} onText={(t) => setPrompt((p) => (p ? p.trimEnd() + " " : "") + t)} />
+            </div>
             <Button disabled={busy} onClick={() => startAI(prompt)} className="mt-3 w-full bg-brand shadow-glow">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Generate
             </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="games" className="mt-6">
+          <p className="mb-4 max-w-2xl text-sm text-muted-foreground">Pick a starting game. Offline games run on any device; online games let you play a friend by sharing a room code. You can change everything afterwards by chatting with the AI.</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {GAME_TEMPLATES.map((t) => (
+              <button key={t.id} disabled={busy} onClick={() => startAI(t.prompt, "template", t.title)}
+                className="rounded-2xl border border-border bg-card p-5 text-left transition hover:border-primary/60 hover:shadow-glow">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-accent"><t.icon className="h-5 w-5 text-glow" /></div>
+                <div className="mt-4 font-medium">{t.title}</div>
+                <div className="text-sm text-muted-foreground">{t.blurb}</div>
+              </button>
+            ))}
           </div>
         </TabsContent>
 
@@ -154,7 +174,7 @@ function NewProject() {
               )}
               {progress && <p className="mt-2 text-sm text-muted-foreground">{progress}</p>}
               <p className="mt-4 flex gap-2 text-xs text-muted-foreground"><Info className="h-4 w-4 shrink-0" />
-                Lovable, Vercel and Netlify projects are imported through their connected GitHub repository (public repos), or export your code as a ZIP. After importing, you can edit, rebuild or delete the project from your dashboard.</p>
+                Lovable, Vercel and Netlify projects are imported through their connected GitHub repository (public repos), or export your code as a ZIP. Every import becomes your own independent copy in My Projects, saved permanently to your account, so you can change anything.</p>
             </div>
           </div>
         </TabsContent>
