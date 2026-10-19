@@ -1,4 +1,7 @@
-import { ShoppingCart, Briefcase, LayoutDashboard, PenSquare, Rocket, GraduationCap, Utensils, Bot, type LucideIcon } from "lucide-react";
+import {
+  ShoppingCart, Briefcase, LayoutDashboard, PenSquare, Rocket, GraduationCap, Utensils, Bot,
+  Gamepad2, Car, Box, Users, CircleDot, Puzzle, type LucideIcon,
+} from "lucide-react";
 
 export type Template = { id: string; title: string; blurb: string; icon: LucideIcon; prompt: string };
 
@@ -19,4 +22,19 @@ export const TEMPLATES: Template[] = [
     prompt: "A restaurant website with hero, tabbed menu with prices, gallery, opening hours and a table reservation form with validation." },
   { id: "chat", title: "AI Chat App UI", blurb: "Chat interface", icon: Bot,
     prompt: "A chat app interface with conversation list sidebar, message thread, composer with typing indicator, and simulated bot replies; conversations saved to localStorage." },
+];
+
+export const GAME_TEMPLATES: Template[] = [
+  { id: "runner", title: "2D Endless Runner", blurb: "Offline · jump, coins, speed-up", icon: Gamepad2,
+    prompt: "A smooth 60fps 2D endless runner game on canvas: player jumps over obstacles, collects coins, speed increases over time, parallax background, Web Audio sound effects, keyboard and touch controls, start/pause/game-over screens and high score saved locally." },
+  { id: "racing", title: "Top-down Car Racing", blurb: "Offline · lanes, traffic, nitro", icon: Car,
+    prompt: "A top-down car racing game on canvas: switch lanes to dodge traffic, nitro boost, fuel pickups, increasing difficulty, engine sounds with Web Audio, touch buttons for mobile, score and high score." },
+  { id: "3d-arena", title: "3D Arena Shooter", blurb: "Offline · Three.js, enemies", icon: Box,
+    prompt: "A lightweight 3D arena shooter with Three.js: third-person player moves with WASD / on-screen joystick, aim and shoot at enemies that chase you, health bar, waves that get harder, low-poly style that runs smoothly on phones, score and restart." },
+  { id: "pool-online", title: "Online 8-Ball Pool", blurb: "Online · play a friend by room code", icon: CircleDot,
+    prompt: "An 8-ball pool game on canvas with realistic ball physics (collisions, friction, pockets), drag to aim and set power. Online multiplayer with PeerJS: Create room shows a short code, friend joins with the code, turns sync between both players. Also a same-device 2-player mode." },
+  { id: "tictactoe-online", title: "Online Board Game", blurb: "Online · tic-tac-toe & connect-4", icon: Users,
+    prompt: "An online multiplayer board game hub with tic-tac-toe and connect-four: Create room / Join room by code using PeerJS, live turn sync, in-game chat, rematch button, plus a vs-computer mode for offline play." },
+  { id: "puzzle", title: "Match-3 Puzzle", blurb: "Offline · levels & moves", icon: Puzzle,
+    prompt: "A colorful match-3 puzzle game: swap gems with mouse or touch, cascading matches with animations, level goals with limited moves, star rating per level, progress saved locally, Web Audio sound effects." },
 ];

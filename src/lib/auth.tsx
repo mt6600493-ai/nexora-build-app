@@ -21,8 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => useContext(AuthCtx);
 
-export function displayName(user: User | null) {
+export function displayName(user: User | null | undefined) {
   if (!user) return "there";
-  const m = user.user_metadata as { full_name?: string; name?: string };
-  return m.full_name || m.name || user.email?.split("@")[0] || "there";
+  const m = (user.user_metadata ?? {}) as { full_name?: unknown; name?: unknown };
+  const pick = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : "");
+  return pick(m.full_name) || pick(m.name) || user.email?.split("@")[0] || "there";
 }

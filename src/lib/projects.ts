@@ -59,6 +59,30 @@ export async function deleteProject(id: string) {
   if (error) throw error;
 }
 
+export type Version = { id: string; label: string; files: FileMap; created_at: string };
+
+/** Snapshot the current files so the user can roll back later. Keeps the latest 30 per project. */
+export async function createVersion(projectId: string, userId: string, files: FileMap, label: string) {
+  if (Object.keys(files).length === 0) return;
+  const { error } = await supabase.from("project_versions").insert({ project_id: projectId, user_id: userId, files: files as never, label: label.slice(0, 120) });
+  if (error) throw error;
+  const { data } = await supabase.from("project_versions").select("id").eq("project_id", projectId).order("created_at", { ascending: false }).range(30, 200);
+  if (data?.length) await supabase.from("project_versions").delete().in("id", data.map((d) => d.id));
+}
+
+export async function listVersions(projectId: string): Promise<Version[]> {
+  const { data, error } = await supabase.from("project_versions").select("id,label,files,created_at").eq("project_id", projectId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Version[];
+}
+
+export async function duplicateProject(p: Project, userId: string) {
+  return createProject({
+    user_id: userId, name: `${p.name} (copy)`, description: p.description, framework: p.framework, source: p.source,
+    files: p.files, messages: [{ role: "assistant", content: `This is a copy of “${p.name}”. Changes here don't affect the original.` }],
+  });
+}
+
 export function nameFromPrompt(prompt: string) {
   const words = prompt.replace(/[^\w\s-]/g, "").split(/\s+/).filter(Boolean).slice(0, 5).join(" ");
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Untitled project";

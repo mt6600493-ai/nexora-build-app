@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      project_versions: {
+        Row: {
+          created_at: string
+          files: Json
+          id: string
+          label: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          files?: Json
+          id?: string
+          label?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          files?: Json
+          id?: string
+          label?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
@@ -61,7 +96,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_published_project: {
+        Args: { _id: string }
+        Returns: {
+          description: string
+          files: Json
+          name: string
+          updated_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

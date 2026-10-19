@@ -1,0 +1,73 @@
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { LogoMark } from "@/components/Logo";
+import { buildPreview } from "@/lib/files";
+import { getPublishedProject } from "@/lib/published.functions";
+
+export const Route = createFileRoute("/p/$id")({
+  loader: async ({ params }) => {
+    const parsed = /^[0-9a-f-]{36}$/i.test(params.id);
+    if (!parsed) throw notFound();
+    const project = await getPublishedProject({ data: { id: params.id } });
+    if (!project) throw notFound();
+    return { project };
+  },
+  head: ({ loaderData, params }) => {
+    const name = loaderData?.project.name ?? "Published project";
+    const desc = (loaderData?.project.description || `${name} — built with Nexora AI.`).slice(0, 160);
+    return {
+      meta: [
+        { title: `${name} — made with Nexora AI` },
+        { name: "description", content: desc },
+        { property: "og:title", content: name },
+        { property: "og:description", content: desc },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: `https://create-ai-zone.lovable.app/p/${params.id}` },
+        { name: "twitter:card", content: "summary" },
+      ],
+      links: [{ rel: "canonical", href: `https://create-ai-zone.lovable.app/p/${params.id}` }],
+    };
+  },
+  notFoundComponent: () => (
+    <div className="grid min-h-screen place-items-center px-6 text-center">
+      <div>
+        <LogoMark className="mx-auto h-12 w-12" />
+        <h1 className="mt-4 text-xl font-semibold">This project isn't published</h1>
+        <p className="mt-2 text-sm text-muted-foreground">The link may be wrong, or the owner has unpublished it.</p>
+        <Link to="/" className="mt-6 inline-block text-glow underline">Build your own with Nexora AI</Link>
+      </div>
+    </div>
+  ),
+  component: PublishedPage,
+});
+
+function PublishedPage() {
+  const { project } = Route.useLoaderData();
+  const [page, setPage] = useState("index.html");
+  const srcDoc = useMemo(() => buildPreview(project.files, page), [project.files, page]);
+
+  useEffect(() => {
+    const h = (e: MessageEvent) => {
+      if (e.data?.type === "nexora-nav") setPage(String(e.data.href).replace(/^\.?\//, "").split("?")[0] || "index.html");
+    };
+    window.addEventListener("message", h);
+    return () => window.removeEventListener("message", h);
+  }, []);
+
+  if (!srcDoc) return (
+    <div className="grid min-h-screen place-items-center px-6 text-center text-sm text-muted-foreground">
+      This project has no web page to show yet.
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-background">
+      <h1 className="sr-only">{project.name}</h1>
+      <iframe title={project.name} srcDoc={srcDoc} className="h-full w-full border-0"
+        sandbox="allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock" allow="fullscreen; autoplay; gamepad" />
+      <Link to="/" className="fixed bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur hover:text-foreground">
+        <LogoMark className="h-4 w-4" /> Made with Nexora AI
+      </Link>
+    </div>
+  );
+}
