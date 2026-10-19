@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 
 const search = z.object({
-  mode: z.enum(["signin", "signup", "forgot"]).optional(),
+  mode: z.enum(["signin", "signup", "forgot", "magic"]).optional(),
   redirect: z.string().optional(),
 });
 
@@ -65,6 +65,11 @@ function AuthPage() {
         });
         if (error) throw error;
         if (!data.session) setSent("Check your inbox to confirm your email, then sign in.");
+      } else if (mode === "magic") {
+        if (redirect) sessionStorage.setItem("nexora:after-auth", target);
+        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/auth` } });
+        if (error) throw error;
+        setSent("We emailed you a one-click sign-in link. Open it on this device to sign in — no password needed.");
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
         if (error) throw error;
@@ -91,8 +96,8 @@ function AuthPage() {
     }
   }, [user, navigate]);
 
-  const title = mode === "signup" ? "Create Your Account" : mode === "forgot" ? "Reset your password" : "Welcome Back";
-  const sub = mode === "signup" ? "Join Nexora AI and start building today." : mode === "forgot" ? "We'll email you a reset link." : "Sign in to continue to your account";
+  const title = mode === "signup" ? "Create Your Account" : mode === "forgot" ? "Reset your password" : mode === "magic" ? "One-click sign in" : "Welcome Back";
+  const sub = mode === "signup" ? "Join Nexora AI and start building today." : mode === "forgot" ? "We'll email you a reset link." : mode === "magic" ? "Enter your email and we'll send you a sign-in link. No password needed." : "Sign in to continue to your account";
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -115,7 +120,7 @@ function AuthPage() {
                 )}
                 <div className="space-y-1.5"><Label htmlFor="email">Email address</Label>
                   <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></div>
-                {mode !== "forgot" && (
+                {mode !== "forgot" && mode !== "magic" && (
                   <div className="space-y-1.5">
                     <div className="flex justify-between"><Label htmlFor="pw">Password</Label>
                       {mode === "signin" && <Link to="/auth" search={{ mode: "forgot", redirect }} className="text-xs text-glow">Forgot password?</Link>}</div>
@@ -129,7 +134,7 @@ function AuthPage() {
                   </div>
                 )}
                 <Button type="submit" disabled={busy} className="w-full bg-brand">
-                  {busy ? "Please wait…" : mode === "signup" ? "Sign Up" : mode === "forgot" ? "Send reset link" : "Sign In"}
+                  {busy ? "Please wait…" : mode === "signup" ? "Sign Up" : mode === "forgot" ? "Send reset link" : mode === "magic" ? "Email me a sign-in link" : "Sign In"}
                 </Button>
               </form>
               {mode !== "forgot" && (
@@ -139,6 +144,11 @@ function AuthPage() {
                     <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1H12v2.98h5.35c-.23 1.4-1.66 4.1-5.35 4.1a5.98 5.98 0 0 1 0-11.96c1.84 0 3.07.78 3.78 1.46l2.58-2.49A9.4 9.4 0 0 0 12 2.6a9.4 9.4 0 1 0 0 18.8c5.42 0 9.02-3.81 9.02-9.18 0-.62-.07-1.09-.15-1.56z" /></svg>
                     Google
                   </Button>
+                  {mode === "magic" ? (
+                    <Button asChild variant="ghost" className="mt-2 w-full"><Link to="/auth" search={{ mode: "signin", redirect }}>Sign in with password instead</Link></Button>
+                  ) : (
+                    <Button asChild variant="ghost" className="mt-2 w-full"><Link to="/auth" search={{ mode: "magic", redirect }}><Mail className="h-4 w-4" />Email me a one-click link</Link></Button>
+                  )}
                 </>
               )}
               <p className="mt-6 text-center text-sm text-muted-foreground">
