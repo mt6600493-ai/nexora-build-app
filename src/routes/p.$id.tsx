@@ -65,9 +65,22 @@ function PublishedPage() {
       <h1 className="sr-only">{project.name}</h1>
       <iframe title={project.name} srcDoc={srcDoc} className="h-full w-full border-0"
         sandbox="allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock" allow="fullscreen; autoplay; gamepad" />
+      {project.sale_contact && (
+        <a href={buyHref(project.sale_contact, project.name)} target="_blank" rel="noreferrer"
+          className="fixed bottom-3 left-3 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground shadow-lg">
+          Buy this project{project.sale_price ? ` · ${project.sale_price}` : ""}
+        </a>
+      )}
       <Link to="/" className="fixed bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur hover:text-foreground">
         <LogoMark className="h-4 w-4" /> Made with Nexora AI
       </Link>
     </div>
   );
+}
+
+function buyHref(c: string, name: string) {
+  const msg = encodeURIComponent(`Hi, I'd like to buy "${name}".`);
+  if (/^https?:\/\//.test(c)) return c;
+  if (c.includes("@")) return `mailto:${c}?subject=${msg}`;
+  return `https://wa.me/${c.replace(/\D/g, "")}?text=${msg}`;
 }

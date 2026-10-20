@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-export type PublishedProject = { name: string; description: string; files: Record<string, string>; updated_at: string };
+export type PublishedProject = { name: string; description: string; files: Record<string, string>; updated_at: string; sale_contact: string; sale_price: string };
 
 /** Public read of a project the owner has published. Only returns name, description and files. */
 export const getPublishedProject = createServerFn({ method: "GET" })

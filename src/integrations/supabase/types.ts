@@ -52,12 +52,15 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          custom_domain: string
           description: string
           files: Json
           framework: string
           id: string
           messages: Json
           name: string
+          sale_contact: string
+          sale_price: string
           source: string
           updated_at: string
           user_id: string
@@ -65,12 +68,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_domain?: string
           description?: string
           files?: Json
           framework?: string
           id?: string
           messages?: Json
           name?: string
+          sale_contact?: string
+          sale_price?: string
           source?: string
           updated_at?: string
           user_id: string
@@ -78,12 +84,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_domain?: string
           description?: string
           files?: Json
           framework?: string
           id?: string
           messages?: Json
           name?: string
+          sale_contact?: string
+          sale_price?: string
           source?: string
           updated_at?: string
           user_id?: string
@@ -102,8 +111,14 @@ export type Database = {
           description: string
           files: Json
           name: string
+          sale_contact: string
+          sale_price: string
           updated_at: string
         }[]
+      }
+      transfer_project: {
+        Args: { _email: string; _id: string }
+        Returns: undefined
       }
     }
     Enums: {

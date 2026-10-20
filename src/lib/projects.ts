@@ -14,6 +14,9 @@ export type Project = {
   messages: ChatMsg[];
   created_at: string;
   updated_at: string;
+  sale_contact?: string;
+  sale_price?: string;
+  custom_domain?: string;
 };
 
 export async function listProjects(): Promise<Project[]> {
