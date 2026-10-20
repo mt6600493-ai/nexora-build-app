@@ -22,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createVersion, deleteProject, duplicateProject, getProject, listVersions, timeAgo, updateProject, type ChatMsg, type Project, type Version } from "@/lib/projects";
+import { SellAndConnect } from "@/components/SellAndConnect";
+import { Github } from "lucide-react";
 import { buildPreview, filesToZip, parseGenerated, type FileMap } from "@/lib/files";
 import { streamGenerate } from "@/lib/generate";
 
@@ -58,6 +60,7 @@ function Workspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [full, setFull] = useState(false);
   const { user } = useAuth();
+  const [sellOpen, setSellOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const started = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -372,6 +375,7 @@ function Workspace() {
           <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} aria-label="Project settings"><Settings className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={exportZip} className="hidden sm:inline-flex"><Download className="h-4 w-4" />Export</Button>
+          <Button variant="outline" size="sm" onClick={() => setSellOpen(true)}><Github className="h-4 w-4" /><span className="hidden sm:inline">GitHub, Domain & Sell</span></Button>
           <Button size="sm" className="bg-brand" onClick={() => setDeployOpen(true)}><Rocket className="h-4 w-4" /><span className="hidden sm:inline">Publish</span></Button>
         </div>
       </header>
