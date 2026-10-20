@@ -62,8 +62,8 @@ export function useVoiceInput(onText: (text: string) => void) {
       if (t.trim()) cb.current(t.trim());
     };
     rec.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { wantOn.current = false; setListening(false); } };
-    // Browsers end recognition after silence; restart while the user still wants it on.
-    rec.onend = () => { if (wantOn.current) { try { rec.start(); } catch { setListening(false); } } else setListening(false); };
+    // No auto-restart: restarting makes Chrome/Android play the mic chime repeatedly.
+    rec.onend = () => { wantOn.current = false; setListening(false); };
     recRef.current = rec;
     wantOn.current = true;
     try { rec.start(); setListening(true); return true; } catch { setListening(false); return false; }
