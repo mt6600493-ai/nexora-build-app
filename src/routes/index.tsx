@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Wand2, Code2, MonitorPlay, Rocket, ArrowRight, Import, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,15 @@ const FEATURES = [
 
 function Landing() {
   const [prompt, setPrompt] = useState("");
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Strict sign-in wall: everyone goes straight to sign-in (or the dashboard if already signed in).
+  useEffect(() => {
+    if (loading) return;
+    if (user) navigate({ to: "/dashboard", replace: true });
+    else navigate({ to: "/auth", replace: true });
+  }, [loading, user, navigate]);
 
   function start(p = prompt) {
     if (p.trim()) sessionStorage.setItem("nexora:pending", p.trim());

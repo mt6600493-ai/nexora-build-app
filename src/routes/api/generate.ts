@@ -74,8 +74,10 @@ export const Route = createFileRoute("/api/generate")({
         if (authErr || !userData.user) return json(401, "Your session expired. Please sign in again.");
         if (!allowed(userData.user.id)) return json(429, "You're sending requests very quickly. Please wait a minute and try again.");
 
+        const groqKey = process.env["GROQ_API_KEY"];
+        const geminiKey = process.env["GEMINI_API_KEY"];
         const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!apiKey) return json(500, "No AI provider is configured on the server.");
+        if (!groqKey && !geminiKey && !apiKey) return json(500, "No AI provider is configured on the server.");
 
         const body = (await request.json()) as Body;
         if (!Array.isArray(body.messages) || body.messages.length === 0) return json(400, "Missing prompt.");
@@ -97,42 +99,58 @@ export const Route = createFileRoute("/api/generate")({
           content: m.content.slice(0, 20_000),
         }));
 
-        const provider = createOpenAI({
-          baseURL: "https://ai.gateway.lovable.dev/v1",
-          apiKey,
-          headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-        });
-
-        const result = streamText({
-          model: provider.responses(MODEL),
-          instructions,
-          messages,
-          abortSignal: request.signal,
-          maxRetries: 0,
-          providerOptions: {
-            openai: { store: false, forceReasoning: true, reasoningEffort: "low", include: ["reasoning.encrypted_content"] },
-          },
-        });
+        // Provider chain: Groq (fast) -> Gemini -> built-in gateway. Falls through only if nothing was streamed yet.
+        type Attempt = () => ReturnType<typeof streamText>;
+        const attempts: Attempt[] = [];
+        if (groqKey) {
+          const groq = createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
+          attempts.push(() => streamText({ model: groq.chat("llama-3.3-70b-versatile"), system: instructions, messages, abortSignal: request.signal, maxRetries: 0, maxOutputTokens: 32000 }));
+        }
+        if (geminiKey) {
+          const gem = createOpenAI({ baseURL: "https://generativelanguage.googleapis.com/v1beta/openai", apiKey: geminiKey });
+          attempts.push(() => streamText({ model: gem.chat("gemini-2.5-flash"), system: instructions, messages, abortSignal: request.signal, maxRetries: 0 }));
+        }
+        if (apiKey) {
+          const provider = createOpenAI({
+            baseURL: "https://ai.gateway.lovable.dev/v1",
+            apiKey,
+            headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+          });
+          attempts.push(() => streamText({
+            model: provider.responses(MODEL), instructions, messages, abortSignal: request.signal, maxRetries: 0,
+            providerOptions: { openai: { store: false, forceReasoning: true, reasoningEffort: "low", include: ["reasoning.encrypted_content"] } },
+          } as Parameters<typeof streamText>[0]));
+        }
 
         const enc = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
-            try {
-              for await (const part of result.fullStream) {
-                if (part.type === "text-delta") controller.enqueue(enc.encode(part.text));
-                else if (part.type === "error") {
-                  const e = part.error as { statusCode?: number; message?: string };
-                  const msg =
-                    e?.statusCode === 402 ? "The AI service has run out of its usage allowance for this workspace."
-                    : e?.statusCode === 429 ? "The AI service is busy right now. Please try again shortly."
-                    : e?.message || "The AI request failed.";
-                  controller.enqueue(enc.encode(`\n[[NEXORA_ERROR]]${msg}`));
+            let lastMsg = "The AI request failed.";
+            for (const run of attempts) {
+              let sent = false;
+              let failed = false;
+              try {
+                const result = run();
+                for await (const part of result.fullStream) {
+                  if (part.type === "text-delta") { sent = true; controller.enqueue(enc.encode(part.text)); }
+                  else if (part.type === "error") {
+                    const e = part.error as { statusCode?: number; message?: string };
+                    lastMsg = e?.statusCode === 429 ? "The AI service is busy right now. Please try again shortly."
+                      : e?.statusCode === 402 ? "The AI service has run out of its usage allowance."
+                      : e?.message || lastMsg;
+                    failed = true;
+                    break;
+                  }
                 }
+              } catch (err) {
+                if ((err as Error)?.name === "AbortError") { controller.close(); return; }
+                lastMsg = (err as Error)?.message ?? lastMsg;
+                failed = true;
               }
-            } catch (err) {
-              if ((err as Error)?.name !== "AbortError")
-                controller.enqueue(enc.encode(`\n[[NEXORA_ERROR]]${(err as Error)?.message ?? "Generation failed."}`));
+              if (!failed) { controller.close(); return; }
+              if (sent) break; // partial output already sent; don't mix providers
             }
+            controller.enqueue(enc.encode(`\n[[NEXORA_ERROR]]${lastMsg}`));
             controller.close();
           },
         });
