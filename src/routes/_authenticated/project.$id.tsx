@@ -402,7 +402,7 @@ function Workspace() {
 
       <PublishDialog open={deployOpen} onOpenChange={setDeployOpen} project={project} canPreview={!!srcDoc}
         onToggle={setPublished} onZip={exportZip} onHtml={exportHtml} />
-      <SellAndConnect project={project} files={files} ownerName={user?.email ?? "the creator"}
+      <SellAndConnect open={sellOpen} onOpenChange={setSellOpen} project={project} files={files} ownerName={user?.email ?? "the creator"}
         onSaved={(patch) => { setProject({ ...project, ...patch }); persist(patch); }}
         onTransferred={() => { qc.invalidateQueries({ queryKey: ["projects"] }); navigate({ to: "/projects" }); }} />
     </div>
