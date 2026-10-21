@@ -138,7 +138,7 @@ export const Route = createFileRoute("/api/generate")({
           const p = s.provider === "groq" ? groq! : gemini!;
           return streamText({
             model: p.chat(s.model), system, messages, abortSignal: request.signal, maxRetries: 0,
-            ...(s.provider === "groq" ? { maxOutputTokens: 32000 } : {}),
+            ...(s.maxOutputTokens ? { maxOutputTokens: s.maxOutputTokens } : {}),
             providerOptions: { openai: { reasoningEffort: "low" } },
           });
         };
