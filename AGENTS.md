@@ -17,3 +17,5 @@
 - Version history lives in `public.project_versions` (snapshot before each AI change and restore, last 30 kept); snapshots are written client-side under RLS so no server code is needed.
 - Publishing sets `projects.visibility = 'public'`; the public `/p/$id` page reads only name/description/files through the security-definer `get_published_project` function, so private columns like chat messages never leave the owner's account.
 - App icons are generated from `public/favicon.svg` and listed in `public/manifest.webmanifest` (manifest only, no service worker) so installing the app shows the Nexora mark.
+- AI provider order and model names live only in `src/lib/ai-providers.ts` (Gemini → Groq → Lovable gateway, using the user's own free keys first); providers retire models, so keep the list in one tested place.
+- Uploaded images are stored in the project file map as data URLs under `assets/`; `buildPreview`, ZIP export and GitHub push decode them, and the AI only receives their paths plus the images as vision input for that one request.

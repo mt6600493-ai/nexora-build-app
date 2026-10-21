@@ -46,6 +46,10 @@ export function buildPreview(files: FileMap, page = "index.html", opts: { standa
     const attrs = `${a} ${b}`.replace(/\s+/g, " ").trim();
     return `<script ${attrs} data-src="${p}">\n${files[p]!.replace(/<\/script>/gi, "<\\/script>")}\n</script>`;
   });
+  // Uploaded images are stored as data URLs; swap their paths in so <img src="assets/x.jpg"> works.
+  const asset = (v: string) => { const p = resolve(v); return p && files[p]!.startsWith("data:") ? files[p]! : null; };
+  html = html.replace(/(\s(?:src|poster|href))=(["'])([^"']+)\2/gi, (m, attr, q, v) => { const d = asset(v); return d ? `${attr}=${q}${d}${q}` : m; });
+  html = html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (m, q, v) => { const d = asset(v); return d ? `url("${d}")` : m; });
   // Intercept internal links between html pages so navigation stays inside the preview.
   const nav = `<script>document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(!h||h.startsWith('#')||/^(https?:|mailto:|tel:)/.test(h))return;if(/\\.html?$/.test(h.split('?')[0])){e.preventDefault();parent.postMessage({type:'nexora-nav',href:h},'*');}});window.onerror=function(m,s,l){parent.postMessage({type:'nexora-error',message:String(m)+' (line '+l+')'},'*');};</script>`;
   if (opts.standalone) return html;
@@ -85,7 +89,11 @@ export async function filesFromZip(file: Blob): Promise<FileMap> {
 
 export async function filesToZip(files: FileMap, name: string) {
   const zip = new JSZip();
-  for (const [p, c] of Object.entries(files)) zip.file(`${name}/${p}`, c);
+  for (const [p, c] of Object.entries(files)) {
+    const b64 = /^data:[^;]+;base64,(.*)$/s.exec(c);
+    if (b64) zip.file(`${name}/${p}`, b64[1]!, { base64: true });
+    else zip.file(`${name}/${p}`, c);
+  }
   return zip.generateAsync({ type: "blob" });
 }
 

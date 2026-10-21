@@ -7,16 +7,21 @@ export async function streamGenerate(
   files: FileMap,
   onText: (full: string) => void,
   signal?: AbortSignal,
+  images: string[] = [],
 ): Promise<{ text: string; error?: string }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) return { text: "", error: "Please sign in to use the AI builder." };
+  // Uploaded images live in the project as data URLs; the AI only needs to know their paths.
+  const slimFiles: FileMap = Object.fromEntries(
+    Object.entries(files).map(([p, c]) => [p, c.startsWith("data:") ? "data:" : c]),
+  );
   let res: Response;
   try {
     res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messages: messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), files }),
+      body: JSON.stringify({ messages: messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), files: slimFiles, images }),
       signal: signal ?? null,
     });
   } catch (e) {
