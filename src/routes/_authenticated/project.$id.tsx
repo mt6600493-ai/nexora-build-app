@@ -26,6 +26,9 @@ import { SellAndConnect } from "@/components/SellAndConnect";
 import { Github } from "lucide-react";
 import { buildPreview, filesToZip, parseGenerated, type FileMap } from "@/lib/files";
 import { streamGenerate } from "@/lib/generate";
+import { PlusMenu } from "@/components/PlusMenu";
+import { AttachmentChips } from "@/components/AttachmentChips";
+import { addAttachments, describeAttachments, readAttachment, type Attachment } from "@/lib/attachments";
 
 export const Route = createFileRoute("/_authenticated/project/$id")({
   validateSearch: z.object({ autostart: z.boolean().optional() }),
@@ -61,6 +64,7 @@ function Workspace() {
   const [full, setFull] = useState(false);
   const { user } = useAuth();
   const [sellOpen, setSellOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const started = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -93,12 +97,12 @@ function Workspace() {
       .catch((e) => { setSaving("idle"); toast.error(`Couldn't save: ${(e as Error).message}`); });
   }, [id, qc]);
 
-  const run = useCallback(async (history: ChatMsg[], baseFiles: FileMap) => {
+  const run = useCallback(async (history: ChatMsg[], baseFiles: FileMap, images: string[] = []) => {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setStreaming("");
     setPreviewErr(null);
-    const { text, error } = await streamGenerate(history, baseFiles, (t) => setStreaming(t), ctrl.signal);
+    const { text, error } = await streamGenerate(history, baseFiles, (t) => setStreaming(t), ctrl.signal, images);
     abortRef.current = null;
     setStreaming(null);
     const { files: out, summary } = parseGenerated(text);
@@ -130,9 +134,21 @@ function Workspace() {
     if (autostart && last?.role === "user") {
       started.current = true;
       navigate({ to: "/project/$id", params: { id }, search: {}, replace: true });
-      run(project.messages, project.files ?? {});
+      let images: string[] = [];
+      try { images = JSON.parse(sessionStorage.getItem(`nexora:images:${id}`) ?? "[]"); } catch { /* ignore */ }
+      sessionStorage.removeItem(`nexora:images:${id}`);
+      run(project.messages, project.files ?? {}, images);
     }
   }, [project, autostart, run, navigate, id]);
+
+  async function attach(list: File[]) {
+    const added: Attachment[] = [];
+    for (const f of list.slice(0, 6)) {
+      try { added.push(await readAttachment(f)); } catch (e) { toast.error((e as Error).message); }
+    }
+    if (added.length) setAttachments((a) => [...a, ...added].slice(0, 6));
+    taRef.current?.focus();
+  }
 
   function sendText(t: string) {
     if (!t || streaming !== null) return;
@@ -191,10 +207,14 @@ function Workspace() {
 
   function send() {
     const t = input.trim();
-    if (!t || streaming !== null) return;
-    const history = [...messages, { role: "user" as const, content: t }];
-    setMessages(history); setInput("");
-    run(history, files);
+    if ((!t && attachments.length === 0) || streaming !== null) return;
+    const { files: withUploads, paths } = addAttachments(files, attachments);
+    const content = (t || "Use the attached files in my project.") + describeAttachments(attachments, paths);
+    const images = attachments.filter((a) => a.kind === "image").map((a) => a.content);
+    const history = [...messages, { role: "user" as const, content }];
+    if (attachments.length) { setFiles(withUploads); setPreviewKey((k) => k + 1); }
+    setMessages(history); setInput(""); setAttachments([]);
+    run(history, withUploads, images);
   }
 
   function editFile(p: string, v: string) {
@@ -273,19 +293,24 @@ function Workspace() {
         <div ref={endRef} />
       </div>
       <div className="border-t border-border p-3">
-        <div className="rounded-xl border border-border bg-card p-2 focus-within:border-primary">
+        <div className="rounded-xl border border-border bg-card p-2 focus-within:border-primary"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) attach(Array.from(e.dataTransfer.files)); }}>
+          <AttachmentChips items={attachments} onRemove={(i) => setAttachments((a) => a.filter((_, j) => j !== i))} />
           <textarea ref={taRef} autoFocus value={input} onChange={(e) => setInput(e.target.value)} rows={3}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Ask Nexora AI to add a feature, fix a bug, change the design…" className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none" />
+            onPaste={(e) => { const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/")); if (imgs.length) { e.preventDefault(); attach(imgs); } }}
+            placeholder="Ask Nexora AI to add a feature, fix a bug, change the design… or tap + to add an image or file" className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
+              <PlusMenu disabled={streaming !== null} onFiles={attach} />
               <VoiceButton disabled={streaming !== null} onText={(t) => setInput((p) => (p ? p.trimEnd() + " " : "") + t)} onDone={() => taRef.current?.focus()} />
               <span className="hidden px-1 text-[11px] text-muted-foreground sm:inline">Enter to send · any language</span>
             </div>
             {streaming !== null ? (
               <Button size="sm" variant="secondary" onClick={() => abortRef.current?.abort()}><Square className="h-3.5 w-3.5" /> Stop</Button>
             ) : (
-              <Button size="sm" onClick={send} disabled={!input.trim()} className="bg-brand"><Send className="h-3.5 w-3.5" /></Button>
+              <Button size="sm" onClick={send} disabled={!input.trim() && attachments.length === 0} className="bg-brand" aria-label="Send"><Send className="h-3.5 w-3.5" /></Button>
             )}
           </div>
         </div>
@@ -348,7 +373,16 @@ function Workspace() {
         {active && files[active] != null ? (
           <>
             <div className="border-b border-border px-3 py-2 text-xs text-muted-foreground">{active}</div>
-            <div className="min-h-0 flex-1"><CodeEditor value={files[active]} onChange={(v) => editFile(active, v)} readOnly={streaming !== null} /></div>
+            {files[active]!.startsWith("data:image/") ? (
+              <div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-muted/30 p-6">
+                <div className="text-center">
+                  <img src={files[active]} alt={active} className="max-h-[60vh] max-w-full rounded-lg border border-border" />
+                  <p className="mt-3 text-xs text-muted-foreground">Use it in your pages as <code className="rounded bg-muted px-1">{`src="${active}"`}</code></p>
+                </div>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1"><CodeEditor value={files[active]!} onChange={(v) => editFile(active, v)} readOnly={streaming !== null} /></div>
+            )}
           </>
         ) : <div className="m-auto text-sm text-muted-foreground">Select a file to edit.</div>}
       </div>

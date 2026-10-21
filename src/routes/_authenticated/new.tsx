@@ -14,8 +14,16 @@ import { VoiceButton } from "@/components/VoiceButton";
 import { createProject, nameFromPrompt } from "@/lib/projects";
 import { detectFramework, filesFromGithub, filesFromZip, type FileMap } from "@/lib/files";
 import { useAuth } from "@/lib/auth";
+import { z } from "zod";
+import { PlusMenu } from "@/components/PlusMenu";
+import { AttachmentChips } from "@/components/AttachmentChips";
+import { addAttachments, describeAttachments, readAttachment, type Attachment } from "@/lib/attachments";
 
 export const Route = createFileRoute("/_authenticated/new")({
+  validateSearch: z.object({
+    tab: z.enum(["ai", "games", "template", "import"]).optional(),
+    kind: z.enum(["app", "website"]).optional(),
+  }),
   head: () => ({ meta: [{ title: "Create New Project — Nexora AI" }, { name: "description", content: "Start a project with AI, a template, or import existing code." }, { property: "og:title", content: "New Project — Nexora AI" }, { property: "og:description", content: "Start with AI, a template or an import." }] }),
   component: NewProject,
 });
@@ -38,17 +46,34 @@ function NewProject() {
   const [repo, setRepo] = useState("");
   const [progress, setProgress] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const { tab = "ai", kind } = Route.useSearch();
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   useEffect(() => {
     const p = sessionStorage.getItem("nexora:pending");
     if (p) { sessionStorage.removeItem("nexora:pending"); setPrompt(p); }
-  }, []);
+    else if (kind) setPrompt((cur) => cur || (kind === "app" ? "A modern web app that " : "A modern website for "));
+  }, [kind]);
 
-  async function startAI(text: string, source = "ai", name?: string) {
-    if (!text.trim() || !user) { toast.error("Describe what you'd like to build."); return; }
+  async function attach(list: File[]) {
+    const added: Attachment[] = [];
+    for (const f of list.slice(0, 6)) {
+      try { added.push(await readAttachment(f)); } catch (e) { toast.error((e as Error).message); }
+    }
+    if (added.length) setAttachments((a) => [...a, ...added].slice(0, 6));
+  }
+
+  async function startAI(text: string, source = "ai", name?: string, withUploads = false) {
+    const ups = withUploads ? attachments : [];
+    if ((!text.trim() && ups.length === 0) || !user) { toast.error("Describe what you'd like to build."); return; }
     setBusy(true);
     try {
-      const id = await createProject({ user_id: user.id, name: name ?? nameFromPrompt(text), description: text, source, messages: [{ role: "user", content: text }] });
+      const { files, paths } = addAttachments({}, ups);
+      const base = text.trim() || "Build a website using the attached files.";
+      const content = base + describeAttachments(ups, paths);
+      const id = await createProject({ user_id: user.id, name: name ?? nameFromPrompt(base), description: base, source, files, messages: [{ role: "user", content }] });
+      const images = ups.filter((a) => a.kind === "image").map((a) => a.content);
+      if (images.length) { try { sessionStorage.setItem(`nexora:images:${id}`, JSON.stringify(images)); } catch { /* storage full: AI still gets the file paths */ } }
       qc.invalidateQueries({ queryKey: ["projects"] });
       navigate({ to: "/project/$id", params: { id }, search: { autostart: true } });
     } catch (e) { toast.error((e as Error).message); setBusy(false); }
@@ -90,7 +115,7 @@ function NewProject() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold">Create New Project</h1>
-      <Tabs defaultValue="ai" className="mt-6">
+      <Tabs key={tab} defaultValue={tab} className="mt-6">
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="ai">Create with AI</TabsTrigger>
           <TabsTrigger value="games">Games</TabsTrigger>
@@ -100,15 +125,20 @@ function NewProject() {
 
         <TabsContent value="ai" className="mt-6 max-w-3xl">
           <div className="rounded-2xl border border-border bg-card p-5">
+            <AttachmentChips items={attachments} onRemove={(i) => setAttachments((a) => a.filter((_, j) => j !== i))} />
             <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startAI(prompt); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startAI(prompt, "ai", undefined, true); }}
+              onPaste={(e) => { const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/")); if (imgs.length) { e.preventDefault(); attach(imgs); } }}
               placeholder="Describe your app or website in detail…  e.g. Create a modern e-commerce website with product search, cart and checkout."
               className="border-0 bg-transparent text-base focus-visible:ring-0" />
             <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">Write or speak in any language — Nexora replies in yours.</span>
+              <div className="flex items-center gap-1">
+                <PlusMenu disabled={busy} onFiles={attach} showNew={false} />
+                <span className="text-xs text-muted-foreground">Add a logo, photo, screenshot or file · write or speak in any language.</span>
+              </div>
               <VoiceButton disabled={busy} onText={(t) => setPrompt((p) => (p ? p.trimEnd() + " " : "") + t)} />
             </div>
-            <Button disabled={busy} onClick={() => startAI(prompt)} className="mt-3 w-full bg-brand shadow-glow">
+            <Button disabled={busy} onClick={() => startAI(prompt, "ai", undefined, true)} className="mt-3 w-full bg-brand shadow-glow">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Generate
             </Button>
           </div>

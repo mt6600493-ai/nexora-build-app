@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, type ModelMessage } from "ai";
-
-const MODEL = "openai/gpt-6-astra";
+import { GEMINI_BASE, GROQ_BASE, LOVABLE_BASE, providerPlan, type ProviderStep } from "@/lib/ai-providers";
 
 const SYSTEM = `You are Nexora AI, an expert web engineer that builds complete, working websites and web apps.
 
@@ -25,6 +24,10 @@ TECH RULES (the live preview runs static files in a browser sandbox, no build st
 - Multiple pages are allowed as separate .html files linked with relative hrefs.
 - If the user's project uses another framework (imported code), edit those files faithfully in their framework.
 - If asked to "convert to an instant live version", rebuild the same app as a no-build index.html (React 18 UMD + Babel standalone, or plain JS) that keeps the original design and features.
+
+UPLOADED FILES AND IMAGES:
+- Files listed as "[uploaded image asset]" are real images in the project. Use them with their exact relative path, e.g. <img src="assets/logo.jpg">. Never output or rewrite those files.
+- If the user attaches a screenshot or design image, recreate that layout and style as closely as possible.
 
 GAMES (when the user asks for a game):
 - Use a <canvas> with a requestAnimationFrame loop and delta-time movement so it runs smoothly at 60fps. Keep allocations out of the loop.
@@ -56,10 +59,13 @@ function allowed(userId: string) {
 type Body = {
   messages: { role: "user" | "assistant"; content: string }[];
   files: Record<string, string>;
+  images?: string[];
 };
 
 const json = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
+
+const IMG_RE = /^data:(image\/(?:png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=]+)$/;
 
 export const Route = createFileRoute("/api/generate")({
   server: {
@@ -76,16 +82,23 @@ export const Route = createFileRoute("/api/generate")({
 
         const groqKey = process.env["GROQ_API_KEY"];
         const geminiKey = process.env["GEMINI_API_KEY"];
-        const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!groqKey && !geminiKey && !apiKey) return json(500, "No AI provider is configured on the server.");
+        const lovableKey = process.env["LOVABLE_API_KEY"];
+        if (!groqKey && !geminiKey && !lovableKey) return json(500, "No AI provider is configured on the server.");
 
         const body = (await request.json()) as Body;
         if (!Array.isArray(body.messages) || body.messages.length === 0) return json(400, "Missing prompt.");
+
+        const images = (Array.isArray(body.images) ? body.images : [])
+          .slice(0, 4)
+          .map((d) => (typeof d === "string" && d.length < 2_000_000 ? IMG_RE.exec(d) : null))
+          .filter((m): m is RegExpExecArray => !!m)
+          .map((m) => ({ mediaType: m[1]!, data: m[2]! }));
 
         const fileEntries = Object.entries(body.files ?? {});
         let ctx = "";
         let budget = 120_000;
         for (const [p, c] of fileEntries) {
+          if (typeof c === "string" && c.startsWith("data:")) { ctx += `\n<file path="${p}">[uploaded image asset]</file>\n`; continue; }
           if (budget <= 0) { ctx += `\n(${p} omitted for length)`; continue; }
           const chunk = `<file path="${p}">\n${c}\n</file>\n`;
           ctx += chunk; budget -= chunk.length;
@@ -94,49 +107,58 @@ export const Route = createFileRoute("/api/generate")({
           ? `\n\nCURRENT PROJECT FILES:\n${ctx}`
           : "\n\nThe project is empty. Create it from scratch.");
 
-        const messages: ModelMessage[] = body.messages.slice(-20).map((m) => ({
-          role: m.role,
-          content: m.content.slice(0, 20_000),
-        }));
+        const recent = body.messages.slice(-20);
+        const textMessages: ModelMessage[] = recent.map((m) => ({ role: m.role, content: m.content.slice(0, 20_000) }));
+        // Attach images to the latest user message for vision-capable models.
+        const visionMessages: ModelMessage[] = images.length
+          ? textMessages.map((m, i) => i === textMessages.length - 1 && m.role === "user"
+            ? { role: "user", content: [{ type: "text", text: String(m.content) }, ...images.map((img) => ({ type: "file" as const, data: img.data, mediaType: img.mediaType }))] }
+            : m)
+          : textMessages;
+        const noteForBlind = images.length ? `\n\n(The user attached ${images.length} image(s) that you cannot see; build from the text description.)` : "";
 
-        // Provider chain: Groq (fast) -> Gemini -> built-in gateway. Falls through only if nothing was streamed yet.
-        type Attempt = () => ReturnType<typeof streamText>;
-        const attempts: Attempt[] = [];
-        if (groqKey) {
-          const groq = createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
-          attempts.push(() => streamText({ model: groq.chat("llama-3.3-70b-versatile"), system: instructions, messages, abortSignal: request.signal, maxRetries: 0, maxOutputTokens: 32000 }));
-        }
-        if (geminiKey) {
-          const gem = createOpenAI({ baseURL: "https://generativelanguage.googleapis.com/v1beta/openai", apiKey: geminiKey });
-          attempts.push(() => streamText({ model: gem.chat("gemini-2.5-flash"), system: instructions, messages, abortSignal: request.signal, maxRetries: 0 }));
-        }
-        if (apiKey) {
-          const provider = createOpenAI({
-            baseURL: "https://ai.gateway.lovable.dev/v1",
-            apiKey,
-            headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+        const gemini = geminiKey ? createOpenAI({ baseURL: GEMINI_BASE, apiKey: geminiKey }) : null;
+        // Groq sits behind Cloudflare, which blocks requests without a User-Agent.
+        const groq = groqKey ? createOpenAI({ baseURL: GROQ_BASE, apiKey: groqKey, headers: { "User-Agent": "nexora-ai/1.0" } }) : null;
+        const lovable = lovableKey ? createOpenAI({
+          baseURL: LOVABLE_BASE, apiKey: lovableKey,
+          headers: { "Lovable-API-Key": lovableKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+        }) : null;
+
+        const plan = providerPlan({ gemini: !!gemini, groq: !!groq, lovable: !!lovable }, images.length > 0);
+        const runStep = (s: ProviderStep) => {
+          const messages = s.vision ? visionMessages : textMessages;
+          const system = s.vision ? instructions : instructions + noteForBlind;
+          if (s.provider === "lovable") {
+            return streamText({
+              model: lovable!.responses(s.model), instructions: system, messages, abortSignal: request.signal, maxRetries: 0,
+              providerOptions: { openai: { store: false, forceReasoning: true, reasoningEffort: "low", include: ["reasoning.encrypted_content"] } },
+            } as Parameters<typeof streamText>[0]);
+          }
+          const p = s.provider === "groq" ? groq! : gemini!;
+          return streamText({
+            model: p.chat(s.model), system, messages, abortSignal: request.signal, maxRetries: 0,
+            ...(s.provider === "groq" ? { maxOutputTokens: 32000 } : {}),
+            providerOptions: { openai: { reasoningEffort: "low" } },
           });
-          attempts.push(() => streamText({
-            model: provider.responses(MODEL), instructions, messages, abortSignal: request.signal, maxRetries: 0,
-            providerOptions: { openai: { store: false, forceReasoning: true, reasoningEffort: "low", include: ["reasoning.encrypted_content"] } },
-          } as Parameters<typeof streamText>[0]));
-        }
+        };
 
         const enc = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
             let lastMsg = "The AI request failed.";
-            for (const run of attempts) {
+            for (const step of plan) {
               let sent = false;
               let failed = false;
               try {
-                const result = run();
+                const result = runStep(step);
                 for await (const part of result.fullStream) {
                   if (part.type === "text-delta") { sent = true; controller.enqueue(enc.encode(part.text)); }
                   else if (part.type === "error") {
                     const e = part.error as { statusCode?: number; message?: string };
-                    lastMsg = e?.statusCode === 429 ? "The AI service is busy right now. Please try again shortly."
-                      : e?.statusCode === 402 ? "The AI service has run out of its usage allowance."
+                    console.error(`[generate] ${step.provider}/${step.model} failed`, e?.statusCode, e?.message);
+                    lastMsg = e?.statusCode === 429 ? "All free AI engines are busy right now. Please wait a minute and try again."
+                      : e?.statusCode === 402 ? "The AI service is temporarily unavailable. Please try again shortly."
                       : e?.message || lastMsg;
                     failed = true;
                     break;
@@ -144,10 +166,12 @@ export const Route = createFileRoute("/api/generate")({
                 }
               } catch (err) {
                 if ((err as Error)?.name === "AbortError") { controller.close(); return; }
+                console.error(`[generate] ${step.provider}/${step.model} threw`, (err as Error)?.message);
                 lastMsg = (err as Error)?.message ?? lastMsg;
                 failed = true;
               }
-              if (!failed) { controller.close(); return; }
+              if (!failed && sent) { controller.close(); return; }
+              if (!failed && !sent) { lastMsg = "The AI returned an empty answer."; continue; }
               if (sent) break; // partial output already sent; don't mix providers
             }
             controller.enqueue(enc.encode(`\n[[NEXORA_ERROR]]${lastMsg}`));

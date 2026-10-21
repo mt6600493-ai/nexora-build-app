@@ -49,7 +49,9 @@ export async function pushToGithub(token: string, repoName: string, files: FileM
   let n = 0;
   for (const [path, content] of entries) {
     onStep?.(`Uploading files ${++n}/${entries.length}`);
-    const blob = await api(`/repos/${owner}/${repo}/git/blobs`, { method: "POST", body: JSON.stringify({ content, encoding: "utf-8" }) });
+    const b64 = /^data:[^;]+;base64,(.*)$/s.exec(content);
+    const payload = b64 ? { content: b64[1], encoding: "base64" } : { content, encoding: "utf-8" };
+    const blob = await api(`/repos/${owner}/${repo}/git/blobs`, { method: "POST", body: JSON.stringify(payload) });
     tree.push({ path, mode: "100644", type: "blob", sha: blob.sha });
   }
   onStep?.("Saving commit…");
