@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { FileMap } from "./files";
+import { hasAlpha } from "./attachments";
 
 // Images live in their own table so project saves stay small; the file map keeps a short reference.
 export const ASSET_PREFIX = "nexora-asset:";
@@ -44,12 +45,6 @@ async function shrink(dataUrl: string): Promise<string> {
     const out = hasAlpha(ctx, c.width, c.height) ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
     return out.length < dataUrl.length ? out : dataUrl;
   } catch { return dataUrl; }
-}
-
-export function hasAlpha(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const d = ctx.getImageData(0, 0, w, h).data;
-  for (let i = 3; i < d.length; i += 16) if (d[i]! < 250) return true;
-  return false;
 }
 
 /** Move inline images out of the file map into cloud asset storage. Images that fail stay inline. */

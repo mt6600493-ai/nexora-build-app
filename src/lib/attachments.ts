@@ -1,5 +1,4 @@
 import { isTextPath, type FileMap } from "./files";
-import { hasAlpha } from "./assets";
 
 export type Attachment = { name: string; path: string; kind: "image" | "file"; content: string };
 
@@ -8,6 +7,12 @@ const MAX_IMAGE_SIDE = 1280;
 
 export const slugName = (n: string) =>
   n.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "") || "file";
+
+export function hasAlpha(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const d = ctx.getImageData(0, 0, w, h).data;
+  for (let i = 3; i < d.length; i += 16) if (d[i]! < 250) return true;
+  return false;
+}
 
 /** Shrink an image so it stays small enough to save in the project and send to the AI. */
 async function imageToDataUrl(file: File): Promise<string> {
