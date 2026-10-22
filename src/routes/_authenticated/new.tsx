@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEMPLATES, GAME_TEMPLATES } from "@/lib/templates";
 import { VoiceButton } from "@/components/VoiceButton";
-import { createProject, nameFromPrompt } from "@/lib/projects";
+import { createProject, nameFromPrompt, updateProject } from "@/lib/projects";
+import { externalizeAssets, hasInlineImages } from "@/lib/assets";
 import { detectFramework, filesFromGithub, filesFromZip, type FileMap } from "@/lib/files";
 import { useAuth } from "@/lib/auth";
 import { z } from "zod";
@@ -71,8 +72,13 @@ function NewProject() {
       const { files, paths } = addAttachments({}, ups);
       const base = text.trim() || "Build a website using the attached files.";
       const content = base + describeAttachments(ups, paths);
-      const id = await createProject({ user_id: user.id, name: name ?? nameFromPrompt(base), description: base, source, files, messages: [{ role: "user", content }] });
+      const id = await createProject({ user_id: user.id, name: name ?? nameFromPrompt(base), description: base, source, files: hasInlineImages(files) ? {} : files, messages: [{ role: "user", content }] });
       const images = ups.filter((a) => a.kind === "image").map((a) => a.content);
+      // Images go to cloud asset storage; the project only keeps a short reference to each one.
+      if (hasInlineImages(files)) {
+        const r = await externalizeAssets(files, id, user.id);
+        await updateProject(id, { files: r.files });
+      }
       if (images.length) { try { sessionStorage.setItem(`nexora:images:${id}`, JSON.stringify(images)); } catch { /* storage full: AI still gets the file paths */ } }
       qc.invalidateQueries({ queryKey: ["projects"] });
       navigate({ to: "/project/$id", params: { id }, search: { autostart: true } });

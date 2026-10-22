@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft, Monitor, Tablet, Smartphone, RefreshCw, Code2, Eye, Download, Settings, Send, Square,
   Loader2, FilePlus, AlertTriangle, MessageSquare, Rocket, FileCode, ExternalLink,
-  Cloud, CloudUpload, History, Copy, Maximize2, Minimize2, Globe, FileDown, Wand2, RotateCcw, Check,
+  Cloud, CloudUpload, CloudOff, History, Copy, Maximize2, Minimize2, Globe, FileDown, Wand2, RotateCcw, Check, ChevronDown,
 } from "lucide-react";
 import { VoiceButton } from "@/components/VoiceButton";
 import { Switch } from "@/components/ui/switch";
@@ -21,10 +21,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createVersion, deleteProject, duplicateProject, getProject, listVersions, timeAgo, updateProject, type ChatMsg, type Project, type Version } from "@/lib/projects";
+import { createVersion, deleteProject, duplicateProject, getProject, getVersionFiles, listVersions, timeAgo, updateProject, type ChatMsg, type Project, type Version } from "@/lib/projects";
+import { createSaveQueue, type SaveState } from "@/lib/save-queue";
+import { externalizeAssets, hasInlineImages, isAssetRef, loadAssets, resolveAssets, type AssetMap } from "@/lib/assets";
+import { ProjectOverview } from "@/components/ProjectOverview";
 import { SellAndConnect } from "@/components/SellAndConnect";
 import { Github } from "lucide-react";
-import { buildPreview, filesToZip, parseGenerated, type FileMap } from "@/lib/files";
+import { buildPreview, filesHash, filesToZip, parseGenerated, type FileMap } from "@/lib/files";
 import { streamGenerate } from "@/lib/generate";
 import { PlusMenu } from "@/components/PlusMenu";
 import { AttachmentChips } from "@/components/AttachmentChips";
@@ -35,6 +38,14 @@ export const Route = createFileRoute("/_authenticated/project/$id")({
   head: () => ({ meta: [{ title: "Project Workspace — Nexora AI" }, { name: "description", content: "Chat with AI, edit code and preview your project live." }, { property: "og:title", content: "Workspace — Nexora AI" }, { property: "og:description", content: "Build with AI, edit code and preview live." }] }),
   component: Workspace,
 });
+
+type Draft = { files: FileMap; messages: ChatMsg[]; at: number };
+const draftKey = (id: string) => `nexora:draft:${id}`;
+function readDraft(id: string): Draft | null {
+  try { const d = JSON.parse(localStorage.getItem(draftKey(id)) ?? "null"); return d && d.files && Array.isArray(d.messages) ? d : null; } catch { return null; }
+}
+function writeDraft(id: string, d: Draft) { try { localStorage.setItem(draftKey(id), JSON.stringify(d)); } catch { /* device storage full */ } }
+function clearDraft(id: string) { try { localStorage.removeItem(draftKey(id)); } catch { /* ignore */ } }
 
 const DEVICES = { desktop: { w: "100%", icon: Monitor }, tablet: { w: "768px", icon: Tablet }, mobile: { w: "390px", icon: Smartphone } } as const;
 type Device = keyof typeof DEVICES;
@@ -57,7 +68,9 @@ function Workspace() {
   const [page, setPage] = useState("index.html");
   const [previewKey, setPreviewKey] = useState(0);
   const [previewErr, setPreviewErr] = useState<string | null>(null);
-  const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [assets, setAssets] = useState<AssetMap>({});
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -70,14 +83,72 @@ function Workspace() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const latest = useRef<{ files: FileMap; messages: ChatMsg[] }>({ files: {}, messages: [] });
+  latest.current = { files, messages };
+
+  // One save at a time, retried automatically; a copy stays on this device until the cloud confirms.
+  const queue = useMemo(() => createSaveQueue<Partial<Project>>(
+    (patch) => updateProject(id, patch),
+    (state) => {
+      setSaveState(state);
+      if (state === "saved") { clearDraft(id); setProject((p) => (p ? { ...p, updated_at: new Date().toISOString() } : p)); qc.invalidateQueries({ queryKey: ["projects"] }); }
+    },
+  ), [id, qc]);
+
+  const persist = useCallback((patch: Partial<Project>) => {
+    if (patch.files || patch.messages) {
+      const cur = latest.current;
+      writeDraft(id, { files: patch.files ?? cur.files, messages: patch.messages ?? cur.messages, at: Date.now() });
+    }
+    return queue.push(patch);
+  }, [id, queue]);
 
   useEffect(() => {
-    getProject(id).then((p) => {
-      setProject(p); setFiles(p.files ?? {}); setMessages(p.messages ?? []);
-      const keys = Object.keys(p.files ?? {});
+    let cancelled = false;
+    getProject(id).then(async (p) => {
+      let f = p.files ?? {};
+      let m = p.messages ?? [];
+      const draft = readDraft(id);
+      const recovered = !!draft && draft.at > Date.parse(p.updated_at) + 2000;
+      if (recovered) { f = draft!.files; m = draft!.messages; }
+      else if (draft) clearDraft(id);
+      const a = await loadAssets(f).catch(() => ({} as AssetMap));
+      if (cancelled) return;
+      setProject(p); setFiles(f); setMessages(m); setAssets(a);
+      const keys = Object.keys(f);
       setActive(keys.find((k) => k.endsWith("index.html")) ?? keys[0] ?? null);
+      if (recovered) { toast.success("We recovered changes that hadn't reached the cloud yet."); persist({ files: f, messages: m }); }
+      // Older projects kept images inside the project; move them out so saves stay fast.
+      if (hasInlineImages(f)) {
+        const r = await externalizeAssets(f, id, p.user_id);
+        if (cancelled || Object.keys(r.assets).length === 0) return;
+        setAssets((x) => ({ ...x, ...r.assets }));
+        const cur = latest.current.files;
+        const merged: FileMap = { ...cur };
+        for (const [k, v] of Object.entries(r.files)) if (cur[k] === f[k]) merged[k] = v;
+        setFiles(merged);
+        persist({ files: merged });
+      }
     }).catch((e) => setLoadErr((e as Error).message));
-  }, [id]);
+    return () => { cancelled = true; };
+  }, [id, persist]);
+
+  // Warn before leaving while changes are still on their way to the cloud.
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => { if (queue.dirty || saveTimer.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [queue]);
+
+  // Keep retrying a failed save: every 20 seconds and as soon as the internet comes back.
+  useEffect(() => {
+    if (saveState !== "error") return;
+    toast.error("Couldn't reach the cloud. Your work is kept on this device and will be saved automatically.", { id: "save-error" });
+    const retry = () => { queue.retry(); };
+    const t = setInterval(retry, 20_000);
+    window.addEventListener("online", retry);
+    return () => { clearInterval(t); window.removeEventListener("online", retry); };
+  }, [saveState, queue]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streaming]);
 
@@ -89,13 +160,6 @@ function Workspace() {
     window.addEventListener("message", h);
     return () => window.removeEventListener("message", h);
   }, []);
-
-  const persist = useCallback((patch: Partial<Project>) => {
-    setSaving("saving");
-    return updateProject(id, patch)
-      .then(() => { setSaving("saved"); qc.invalidateQueries({ queryKey: ["projects"] }); })
-      .catch((e) => { setSaving("idle"); toast.error(`Couldn't save: ${(e as Error).message}`); });
-  }, [id, qc]);
 
   const run = useCallback(async (history: ChatMsg[], baseFiles: FileMap, images: string[] = []) => {
     const ctrl = new AbortController();
@@ -141,6 +205,8 @@ function Workspace() {
     }
   }, [project, autostart, run, navigate, id]);
 
+  const fullFiles = useMemo(() => resolveAssets(files, assets), [files, assets]);
+
   async function attach(list: File[]) {
     const added: Attachment[] = [];
     for (const f of list.slice(0, 6)) {
@@ -166,15 +232,21 @@ function Workspace() {
   }
 
   async function restoreVersion(v: Version) {
-    if (!user) return;
+    if (!user || !project) return;
     if (!window.confirm(`Restore the version from ${timeAgo(v.created_at)}? Your current files are saved as a version first.`)) return;
-    await createVersion(id, user.id, files, "Before restore").catch(() => {});
-    setFiles(v.files); setPreviewKey((k) => k + 1);
-    const keys = Object.keys(v.files);
-    setActive(keys.find((k) => k.endsWith("index.html")) ?? keys[0] ?? null);
-    await persist({ files: v.files });
-    setHistoryOpen(false);
-    toast.success("Version restored");
+    try {
+      let vf = await getVersionFiles(v.id);
+      if (hasInlineImages(vf)) { const r = await externalizeAssets(vf, id, project.user_id); vf = r.files; setAssets((a) => ({ ...a, ...r.assets })); }
+      const more = await loadAssets(vf).catch(() => ({} as AssetMap));
+      setAssets((a) => ({ ...a, ...more }));
+      await createVersion(id, user.id, files, "Before restore").catch(() => {});
+      setFiles(vf); setPreviewKey((k) => k + 1);
+      const keys = Object.keys(vf);
+      setActive(keys.find((k) => k.endsWith("index.html")) ?? keys[0] ?? null);
+      setHistoryOpen(false);
+      const ok = await persist({ files: vf });
+      if (ok) toast.success("Version restored");
+    } catch (e) { toast.error(`Couldn't restore: ${(e as Error).message}`); }
   }
 
   async function duplicate() {
@@ -189,7 +261,7 @@ function Workspace() {
 
   function exportHtml() {
     if (!project) return;
-    const html = buildPreview(files, "index.html", { standalone: true });
+    const html = buildPreview(fullFiles, "index.html", { standalone: true });
     if (!html) { toast.error("This project has no index.html page to export."); return; }
     const slug = project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
     const a = document.createElement("a");
@@ -197,23 +269,41 @@ function Workspace() {
     URL.revokeObjectURL(a.href);
   }
 
-  async function setPublished(on: boolean) {
-    if (!project) return;
-    const visibility = on ? "public" : "private";
-    setProject({ ...project, visibility });
-    await persist({ visibility });
-    toast.success(on ? "Your project is live" : "Project unpublished");
+  /** Publish the current files as the live version (the live page keeps this snapshot until the next publish). */
+  async function publish() {
+    if (!project) return false;
+    const published_hash = filesHash(files);
+    const published_at = new Date().toISOString();
+    const ok = await persist({ visibility: "public", published_files: files, published_hash, published_at });
+    if (ok) { setProject((p) => (p ? { ...p, visibility: "public", published_hash, published_at } : p)); toast.success("Your latest version is live"); }
+    else toast.error("Publishing didn't finish. It will complete automatically when the connection is back.");
+    return ok;
   }
 
-  function send() {
+  async function unpublish() {
+    if (!project) return false;
+    const ok = await persist({ visibility: "private" });
+    if (ok) { setProject((p) => (p ? { ...p, visibility: "private" } : p)); toast.success("Project unpublished"); }
+    return ok;
+  }
+
+  async function send() {
     const t = input.trim();
-    if ((!t && attachments.length === 0) || streaming !== null) return;
-    const { files: withUploads, paths } = addAttachments(files, attachments);
-    const content = (t || "Use the attached files in my project.") + describeAttachments(attachments, paths);
-    const images = attachments.filter((a) => a.kind === "image").map((a) => a.content);
+    if ((!t && attachments.length === 0) || streaming !== null || !project) return;
+    const ups = attachments;
+    setInput(""); setAttachments([]);
+    let { files: withUploads, paths } = addAttachments(files, ups);
+    const content = (t || "Use the attached files in my project.") + describeAttachments(ups, paths);
+    const images = ups.filter((a) => a.kind === "image").map((a) => a.content);
     const history = [...messages, { role: "user" as const, content }];
-    if (attachments.length) { setFiles(withUploads); setPreviewKey((k) => k + 1); }
-    setMessages(history); setInput(""); setAttachments([]);
+    setMessages(history);
+    if (images.length) {
+      setStreaming("");
+      // Store images in cloud asset storage so the project itself stays small and quick to save.
+      const r = await externalizeAssets(withUploads, id, project.user_id).catch(() => null);
+      if (r) { withUploads = r.files; setAssets((a) => ({ ...a, ...r.assets })); }
+    }
+    if (ups.length) { setFiles(withUploads); setPreviewKey((k) => k + 1); }
     run(history, withUploads, images);
   }
 
@@ -221,8 +311,8 @@ function Workspace() {
     setFiles((f) => {
       const next = { ...f, [p]: v };
       clearTimeout(saveTimer.current);
-      setSaving("saving");
-      saveTimer.current = setTimeout(() => { persist({ files: next }); setPreviewKey((k) => k + 1); }, 900);
+      setSaveState("saving");
+      saveTimer.current = setTimeout(() => { saveTimer.current = undefined; persist({ files: next }); setPreviewKey((k) => k + 1); }, 900);
       return next;
     });
   }
@@ -245,7 +335,7 @@ function Workspace() {
   async function exportZip() {
     if (!project) return;
     const slug = project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
-    const blob = await filesToZip(files, slug);
+    const blob = await filesToZip(fullFiles, slug);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = `${slug}.zip`; a.click();
     URL.revokeObjectURL(a.href);
@@ -258,7 +348,10 @@ function Workspace() {
   }
 
   const live = streaming !== null ? parseGenerated(streaming) : null;
-  const srcDoc = useMemo(() => buildPreview(files, page), [files, page]);
+  const srcDoc = useMemo(() => buildPreview(fullFiles, page), [fullFiles, page]);
+  const currentHash = useMemo(() => filesHash(files), [files]);
+  const isLive = project?.visibility === "public";
+  const hasUnpublished = isLive && project?.published_hash !== currentHash;
   const htmlPages = Object.keys(files).filter((p) => p.endsWith(".html"));
   const isBuildProject = !!files["package.json"] && !srcDoc;
 
@@ -373,10 +466,10 @@ function Workspace() {
         {active && files[active] != null ? (
           <>
             <div className="border-b border-border px-3 py-2 text-xs text-muted-foreground">{active}</div>
-            {files[active]!.startsWith("data:image/") ? (
+            {files[active]!.startsWith("data:image/") || isAssetRef(files[active]!) ? (
               <div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-muted/30 p-6">
                 <div className="text-center">
-                  <img src={files[active]} alt={active} className="max-h-[60vh] max-w-full rounded-lg border border-border" />
+                  <img src={fullFiles[active]} alt={active} className="max-h-[60vh] max-w-full rounded-lg border border-border" />
                   <p className="mt-3 text-xs text-muted-foreground">Use it in your pages as <code className="rounded bg-muted px-1">{`src="${active}"`}</code></p>
                 </div>
               </div>
@@ -395,9 +488,12 @@ function Workspace() {
         <Link to="/dashboard" aria-label="Back" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
         <LogoMark className="h-7 w-7" />
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">{project.name}</div>
+          <button onClick={() => setOverviewOpen(true)} className="flex max-w-full items-center gap-1 text-left text-sm font-semibold hover:text-glow" aria-label="Project overview">
+            <span className="truncate">{project.name}</span><ChevronDown className="h-3.5 w-3.5 shrink-0" />
+          </button>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            {saving === "saving" ? <><CloudUpload className="h-3 w-3 animate-pulse" />Saving to cloud…</>
+            {saveState === "saving" ? <><CloudUpload className="h-3 w-3 animate-pulse" />Saving to cloud…</>
+              : saveState === "error" ? <button onClick={() => queue.retry()} className="flex items-center gap-1 text-destructive"><CloudOff className="h-3 w-3" />Not saved — tap to retry</button>
               : <><Cloud className="h-3 w-3 text-success" />Saved to cloud · {Object.keys(files).length} files</>}
           </div>
         </div>
@@ -410,7 +506,10 @@ function Workspace() {
           <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} aria-label="Project settings"><Settings className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={exportZip} className="hidden sm:inline-flex"><Download className="h-4 w-4" />Export</Button>
           <Button variant="outline" size="sm" onClick={() => setSellOpen(true)}><Github className="h-4 w-4" /><span className="hidden sm:inline">GitHub, Domain & Sell</span></Button>
-          <Button size="sm" className="bg-brand" onClick={() => setDeployOpen(true)}><Rocket className="h-4 w-4" /><span className="hidden sm:inline">Publish</span></Button>
+          <Button size="sm" className={isLive && !hasUnpublished ? "" : "bg-brand"} variant={isLive && !hasUnpublished ? "outline" : "default"} onClick={() => setDeployOpen(true)}>
+            {hasUnpublished ? <span className="relative flex h-2 w-2"><span className="absolute h-2 w-2 animate-ping rounded-full bg-primary-foreground/70" /><span className="h-2 w-2 rounded-full bg-primary-foreground" /></span> : isLive ? <Globe className="h-4 w-4 text-success" /> : <Rocket className="h-4 w-4" />}
+            <span className="hidden sm:inline">{hasUnpublished ? "Publish changes" : isLive ? "Published" : "Publish"}</span>
+          </Button>
         </div>
       </header>
 
@@ -428,15 +527,18 @@ function Workspace() {
         <section className={`${mobileTab === "work" ? "flex" : "hidden"} min-w-0 flex-1 flex-col md:flex`}>{view === "preview" ? preview : code}</section>
       </div>
 
+      <ProjectOverview open={overviewOpen} onOpenChange={setOverviewOpen} project={project} files={files} saveState={saveState} hasUnpublished={hasUnpublished}
+        onAction={(a) => { if (a === "settings") setSettingsOpen(true); else if (a === "history") setHistoryOpen(true); else if (a === "publish") setDeployOpen(true); else if (a === "github") setSellOpen(true); else exportZip(); }} />
+
       <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} projectId={id} onRestore={restoreVersion} />
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} project={project} onDuplicate={duplicate}
-        onSave={async (patch) => { setProject({ ...project, ...patch }); await persist(patch); setSettingsOpen(false); toast.success("Settings saved"); }}
+        onSave={async (patch) => { setProject({ ...project, ...patch }); setSettingsOpen(false); if (await persist(patch)) toast.success("Settings saved"); }}
         onDelete={async () => { await deleteProject(id); qc.invalidateQueries({ queryKey: ["projects"] }); navigate({ to: "/dashboard" }); }} />
 
-      <PublishDialog open={deployOpen} onOpenChange={setDeployOpen} project={project} canPreview={!!srcDoc}
-        onToggle={setPublished} onZip={exportZip} onHtml={exportHtml} />
-      <SellAndConnect open={sellOpen} onOpenChange={setSellOpen} project={project} files={files} ownerName={user?.email ?? "the creator"}
+      <PublishDialog open={deployOpen} onOpenChange={setDeployOpen} project={project} canPreview={!!srcDoc} hasUnpublished={hasUnpublished}
+        onPublish={publish} onUnpublish={unpublish} onZip={exportZip} onHtml={exportHtml} />
+      <SellAndConnect open={sellOpen} onOpenChange={setSellOpen} project={project} files={fullFiles} ownerName={user?.email ?? "the creator"}
         onSaved={(patch) => { setProject({ ...project, ...patch }); persist(patch); }}
         onTransferred={() => { qc.invalidateQueries({ queryKey: ["projects"] }); navigate({ to: "/projects" }); }} />
     </div>
@@ -501,7 +603,7 @@ function HistoryDialog({ open, onOpenChange, projectId, onRestore }: {
               <div key={v.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{v.label || "Snapshot"}</div>
-                  <div className="text-xs text-muted-foreground">{timeAgo(v.created_at)} · {Object.keys(v.files ?? {}).length} files</div>
+                  <div className="text-xs text-muted-foreground">{timeAgo(v.created_at)}</div>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => onRestore(v)}><RotateCcw className="h-3.5 w-3.5" />Restore</Button>
               </div>
@@ -512,30 +614,37 @@ function HistoryDialog({ open, onOpenChange, projectId, onRestore }: {
   );
 }
 
-function PublishDialog({ open, onOpenChange, project, canPreview, onToggle, onZip, onHtml }: {
-  open: boolean; onOpenChange: (o: boolean) => void; project: Project; canPreview: boolean;
-  onToggle: (on: boolean) => Promise<void>; onZip: () => void; onHtml: () => void;
+function PublishDialog({ open, onOpenChange, project, canPreview, hasUnpublished, onPublish, onUnpublish, onZip, onHtml }: {
+  open: boolean; onOpenChange: (o: boolean) => void; project: Project; canPreview: boolean; hasUnpublished: boolean;
+  onPublish: () => Promise<boolean>; onUnpublish: () => Promise<boolean>; onZip: () => void; onHtml: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const live = project.visibility === "public";
   const url = typeof window === "undefined" ? "" : `${window.location.origin}/p/${project.id}`;
+  const act = async (fn: () => Promise<boolean>) => { setBusy(true); await fn(); setBusy(false); };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Publish your project</DialogTitle>
-          <DialogDescription>Put it online with a public link anyone can open, or download it.</DialogDescription>
+          <DialogTitle>{live ? (hasUnpublished ? "Publish your changes" : "Your project is live") : "Publish your project"}</DialogTitle>
+          <DialogDescription>{live ? "Visitors see the version you last published. New edits go live when you publish them." : "Put it online with a public link anyone can open, or download it."}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5 text-glow" />
               <div className="flex-1"><div className="text-sm font-medium">Live on the web</div>
-                <div className="text-xs text-muted-foreground">{live ? "Anyone with the link can open it." : "Only you can see it right now."}</div></div>
-              <Switch checked={live} disabled={busy || (!canPreview && !live)} onCheckedChange={async (v) => { setBusy(true); await onToggle(v); setBusy(false); }} aria-label="Publish" />
+                <div className="text-xs text-muted-foreground">{live ? `Anyone with the link can open it${project.published_at ? ` · published ${timeAgo(project.published_at)}` : ""}.` : "Only you can see it right now."}</div></div>
+              <Switch checked={live} disabled={busy || (!canPreview && !live)} onCheckedChange={(v) => act(v ? onPublish : onUnpublish)} aria-label="Publish" />
             </div>
             {!canPreview && !live && <p className="mt-3 text-xs text-muted-foreground">This project needs an index.html page before it can go live. Use “Convert to instant live version” first.</p>}
+            {live && hasUnpublished && (
+              <Button className="mt-3 w-full bg-brand" disabled={busy} onClick={() => act(onPublish)}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}Publish changes
+              </Button>
+            )}
+            {live && !hasUnpublished && <p className="mt-3 flex items-center gap-1.5 text-xs text-success"><Check className="h-3.5 w-3.5" />The live site shows your latest version.</p>}
             {live && (
               <div className="mt-3 flex gap-2">
                 <Input readOnly value={url} className="text-xs" onFocus={(e) => e.currentTarget.select()} />
@@ -544,12 +653,20 @@ function PublishDialog({ open, onOpenChange, project, canPreview, onToggle, onZi
               </div>
             )}
           </div>
+          {live && (
+            <div className="rounded-xl border border-border p-4 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 text-sm font-medium text-foreground"><Globe className="h-4 w-4 text-glow" />Google Search</div>
+              Your live page is added to Nexora's public sitemap automatically, with its name and description as the Google title and snippet (change them in Project settings). For faster results, open{" "}
+              <a className="text-glow underline" href={`https://search.google.com/search-console/inspect?resource_id=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer">Google Search Console</a>{" "}
+              and choose “Request indexing” for your link.
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-2">
             <Button variant="outline" onClick={onHtml}><FileDown className="h-4 w-4" />Single HTML file</Button>
             <Button variant="outline" onClick={onZip}><Download className="h-4 w-4" />All files (ZIP)</Button>
           </div>
           <div className="space-y-2 rounded-xl bg-muted/50 p-4 text-xs text-muted-foreground">
-            <p><b className="text-foreground">Google Search:</b> share your live link anywhere (social media, WhatsApp, your site). Google finds pages through links; for faster results add the link in Google Search Console.</p>
+            <p><b className="text-foreground">Get found faster:</b> share your live link on social media, WhatsApp and your own site — Google discovers pages through links.</p>
             <p><b className="text-foreground">Play Store / Uptodown:</b> paste your live link into <a className="text-glow underline" href="https://www.pwabuilder.com" target="_blank" rel="noreferrer">PWABuilder</a> to get an Android app package. The Play Store needs a Google Play developer account; Uptodown accepts the APK directly.</p>
             <p><b className="text-foreground">Own hosting:</b> drop the ZIP on <a className="text-glow underline" href="https://app.netlify.com/drop" target="_blank" rel="noreferrer">Netlify Drop</a> or <a className="text-glow underline" href="https://vercel.com/new" target="_blank" rel="noreferrer">Vercel</a>.</p>
           </div>

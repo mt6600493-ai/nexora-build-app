@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMsg } from "./projects";
 import type { FileMap } from "./files";
+import { isAssetRef } from "./assets";
 
 export async function streamGenerate(
   messages: ChatMsg[],
@@ -14,7 +15,7 @@ export async function streamGenerate(
   if (!token) return { text: "", error: "Please sign in to use the AI builder." };
   // Uploaded images live in the project as data URLs; the AI only needs to know their paths.
   const slimFiles: FileMap = Object.fromEntries(
-    Object.entries(files).map(([p, c]) => [p, c.startsWith("data:") ? "data:" : c]),
+    Object.entries(files).map(([p, c]) => [p, c.startsWith("data:") || isAssetRef(c) ? "data:" : c]),
   );
   let res: Response;
   try {

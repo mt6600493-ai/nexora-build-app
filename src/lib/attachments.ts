@@ -8,6 +8,12 @@ const MAX_IMAGE_SIDE = 1280;
 export const slugName = (n: string) =>
   n.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "") || "file";
 
+export function hasAlpha(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const d = ctx.getImageData(0, 0, w, h).data;
+  for (let i = 3; i < d.length; i += 16) if (d[i]! < 250) return true;
+  return false;
+}
+
 /** Shrink an image so it stays small enough to save in the project and send to the AI. */
 async function imageToDataUrl(file: File): Promise<string> {
   const url = URL.createObjectURL(file);
@@ -18,8 +24,11 @@ async function imageToDataUrl(file: File): Promise<string> {
     const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width, img.height));
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return file.type === "image/png" ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    // Screenshots are PNG but rarely transparent; JPEG makes them ~10x smaller.
+    const keepPng = file.type !== "image/jpeg" && hasAlpha(ctx, c.width, c.height);
+    return keepPng ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
   } finally { URL.revokeObjectURL(url); }
 }
 

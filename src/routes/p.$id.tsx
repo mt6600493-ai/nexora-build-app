@@ -24,6 +24,9 @@ export const Route = createFileRoute("/p/$id")({
         { property: "og:type", content: "website" },
         { property: "og:url", content: `https://create-ai-zone.lovable.app/p/${params.id}` },
         { name: "twitter:card", content: "summary" },
+        { name: "twitter:title", content: name },
+        { name: "twitter:description", content: desc },
+        { name: "robots", content: "index, follow" },
       ],
       links: [{ rel: "canonical", href: `https://create-ai-zone.lovable.app/p/${params.id}` }],
     };
@@ -63,6 +66,7 @@ function PublishedPage() {
   return (
     <div className="fixed inset-0 bg-background">
       <h1 className="sr-only">{project.name}</h1>
+      {project.description && <p className="sr-only">{project.description}</p>}
       <iframe title={project.name} srcDoc={srcDoc} className="h-full w-full border-0"
         sandbox="allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock" allow="fullscreen; autoplay; gamepad" />
       {project.sale_contact && (
