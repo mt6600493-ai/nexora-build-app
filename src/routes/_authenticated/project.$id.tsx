@@ -123,9 +123,11 @@ function Workspace() {
         const r = await externalizeAssets(f, id, p.user_id);
         if (cancelled || Object.keys(r.assets).length === 0) return;
         setAssets((x) => ({ ...x, ...r.assets }));
-        let merged: FileMap = f;
-        setFiles((cur) => { merged = { ...cur }; for (const [k, v] of Object.entries(r.files)) if (cur[k] === f[k]) merged[k] = v; return merged; });
-        setTimeout(() => persist({ files: merged }), 0);
+        const cur = latest.current.files;
+        const merged: FileMap = { ...cur };
+        for (const [k, v] of Object.entries(r.files)) if (cur[k] === f[k]) merged[k] = v;
+        setFiles(merged);
+        persist({ files: merged });
       }
     }).catch((e) => setLoadErr((e as Error).message));
     return () => { cancelled = true; };
