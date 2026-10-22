@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      project_assets: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          path: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          path?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          path?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_versions: {
         Row: {
           created_at: string
@@ -59,6 +94,9 @@ export type Database = {
           id: string
           messages: Json
           name: string
+          published_at: string | null
+          published_files: Json | null
+          published_hash: string | null
           sale_contact: string
           sale_price: string
           source: string
@@ -75,6 +113,9 @@ export type Database = {
           id?: string
           messages?: Json
           name?: string
+          published_at?: string | null
+          published_files?: Json | null
+          published_hash?: string | null
           sale_contact?: string
           sale_price?: string
           source?: string
@@ -91,6 +132,9 @@ export type Database = {
           id?: string
           messages?: Json
           name?: string
+          published_at?: string | null
+          published_files?: Json | null
+          published_hash?: string | null
           sale_contact?: string
           sale_price?: string
           source?: string
@@ -113,6 +157,13 @@ export type Database = {
           name: string
           sale_contact: string
           sale_price: string
+          updated_at: string
+        }[]
+      }
+      list_published_projects: {
+        Args: never
+        Returns: {
+          id: string
           updated_at: string
         }[]
       }
