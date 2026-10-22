@@ -46,7 +46,8 @@ export function createSaveQueue<T extends object>(
     /** Queue changes; resolves true once everything queued so far reached the cloud. */
     push(patch: T): Promise<boolean> {
       pending = { ...(pending ?? {}), ...patch } as T;
-      if (current) return current.then(() => (pending ? flush() : true));
+      // A running save picks up the new changes itself.
+      if (current) return current.then((ok) => (ok && pending ? flush() : ok));
       return flush();
     },
     retry(): Promise<boolean> { return pending ? flush() : Promise.resolve(true); },

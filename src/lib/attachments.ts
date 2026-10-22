@@ -1,4 +1,5 @@
 import { isTextPath, type FileMap } from "./files";
+import { hasAlpha } from "./assets";
 
 export type Attachment = { name: string; path: string; kind: "image" | "file"; content: string };
 
@@ -18,8 +19,11 @@ async function imageToDataUrl(file: File): Promise<string> {
     const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width, img.height));
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return file.type === "image/png" ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    // Screenshots are PNG but rarely transparent; JPEG makes them ~10x smaller.
+    const keepPng = file.type !== "image/jpeg" && hasAlpha(ctx, c.width, c.height);
+    return keepPng ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
   } finally { URL.revokeObjectURL(url); }
 }
 
