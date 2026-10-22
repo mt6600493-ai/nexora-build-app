@@ -54,7 +54,7 @@ export function ProjectOverview({ open, onOpenChange, project, files, saveState,
               : <span className="flex items-center gap-1 text-success"><Cloud className="h-3.5 w-3.5" />Saved {timeAgo(project.updated_at)}</span>}
           </Row>
           <Row label="Website status">
-            {live ? <span className={hasUnpublished ? "text-warning" : "text-success"}>{hasUnpublished ? "Live · new changes not published" : "Live · up to date"}</span>
+            {live ? <span className={hasUnpublished ? "text-glow" : "text-success"}>{hasUnpublished ? "Live · new changes not published" : "Live · up to date"}</span>
               : <span className="text-muted-foreground">Not published</span>}
           </Row>
           {live && <Row label="Live link"><a href={url} target="_blank" rel="noreferrer" className="truncate text-glow underline">{url.replace(/^https?:\/\//, "")}</a></Row>}
