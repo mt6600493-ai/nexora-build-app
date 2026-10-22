@@ -24,6 +24,9 @@ export const Route = createFileRoute("/p/$id")({
         { property: "og:type", content: "website" },
         { property: "og:url", content: `https://create-ai-zone.lovable.app/p/${params.id}` },
         { name: "twitter:card", content: "summary" },
+        { name: "twitter:title", content: name },
+        { name: "twitter:description", content: desc },
+        { name: "robots", content: "index, follow" },
       ],
       links: [{ rel: "canonical", href: `https://create-ai-zone.lovable.app/p/${params.id}` }],
     };
