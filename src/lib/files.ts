@@ -138,6 +138,16 @@ export async function filesFromGithub(url: string, onProgress?: (n: number, tota
   return out;
 }
 
+/** Short fingerprint of the project files, used to tell whether there are unpublished changes. */
+export function filesHash(files: FileMap): string {
+  let h = 5381;
+  for (const k of Object.keys(files).sort()) {
+    const s = `${k}\u0000${files[k]}\u0001`;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(36) + "-" + Object.keys(files).length;
+}
+
 export function languageOf(path: string) {
   const ext = path.split(".").pop()?.toLowerCase();
   return ext ?? "txt";

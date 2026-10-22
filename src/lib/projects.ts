@@ -17,16 +17,22 @@ export type Project = {
   sale_contact?: string;
   sale_price?: string;
   custom_domain?: string;
+  published_files?: FileMap | null;
+  published_at?: string | null;
+  published_hash?: string | null;
 };
 
+// published_files is never loaded back: it is only written as the public snapshot.
+const COLS = "id,user_id,name,description,framework,visibility,source,files,messages,created_at,updated_at,sale_contact,sale_price,custom_domain,published_at,published_hash";
+
 export async function listProjects(): Promise<Project[]> {
-  const { data, error } = await supabase.from("projects").select("*").order("updated_at", { ascending: false });
+  const { data, error } = await supabase.from("projects").select(COLS).order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as Project[];
 }
 
 export async function getProject(id: string): Promise<Project> {
-  const { data, error } = await supabase.from("projects").select("*").eq("id", id).single();
+  const { data, error } = await supabase.from("projects").select(COLS).eq("id", id).single();
   if (error) throw error;
   return data as unknown as Project;
 }
@@ -62,7 +68,7 @@ export async function deleteProject(id: string) {
   if (error) throw error;
 }
 
-export type Version = { id: string; label: string; files: FileMap; created_at: string };
+export type Version = { id: string; label: string; created_at: string };
 
 /** Snapshot the current files so the user can roll back later. Keeps the latest 30 per project. */
 export async function createVersion(projectId: string, userId: string, files: FileMap, label: string) {
@@ -74,9 +80,15 @@ export async function createVersion(projectId: string, userId: string, files: Fi
 }
 
 export async function listVersions(projectId: string): Promise<Version[]> {
-  const { data, error } = await supabase.from("project_versions").select("id,label,files,created_at").eq("project_id", projectId).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("project_versions").select("id,label,created_at").eq("project_id", projectId).order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as Version[];
+}
+
+export async function getVersionFiles(versionId: string): Promise<FileMap> {
+  const { data, error } = await supabase.from("project_versions").select("files").eq("id", versionId).single();
+  if (error) throw error;
+  return (data?.files ?? {}) as unknown as FileMap;
 }
 
 export async function duplicateProject(p: Project, userId: string) {
