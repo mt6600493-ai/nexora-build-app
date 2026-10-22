@@ -94,18 +94,23 @@ export const Route = createFileRoute("/api/generate")({
           .filter((m): m is RegExpExecArray => !!m)
           .map((m) => ({ mediaType: m[1]!, data: m[2]! }));
 
-        const fileEntries = Object.entries(body.files ?? {});
-        let ctx = "";
-        let budget = 120_000;
-        for (const [p, c] of fileEntries) {
-          if (typeof c === "string" && c.startsWith("data:")) { ctx += `\n<file path="${p}">[uploaded image asset]</file>\n`; continue; }
-          if (budget <= 0) { ctx += `\n(${p} omitted for length)`; continue; }
-          const chunk = `<file path="${p}">\n${c}\n</file>\n`;
-          ctx += chunk; budget -= chunk.length;
-        }
-        const instructions = SYSTEM + (fileEntries.length
-          ? `\n\nCURRENT PROJECT FILES:\n${ctx}`
-          : "\n\nThe project is empty. Create it from scratch.");
+        // Pages and their own styles/scripts first, so they survive when a large project is trimmed.
+        const rank = (p: string) => (/\.html?$/.test(p) ? 0 : /\.(css|js)$/.test(p) && !p.includes("/") ? 1 : /\.(css|js|jsx|ts|tsx|json)$/.test(p) ? 2 : 3);
+        const fileEntries = Object.entries(body.files ?? {}).sort((a, b) => rank(a[0]) - rank(b[0]));
+        const buildCtx = (limit: number) => {
+          let ctx = "";
+          let budget = limit;
+          for (const [p, c] of fileEntries) {
+            if (typeof c === "string" && c.startsWith("data:")) { ctx += `\n<file path="${p}">[uploaded image asset]</file>\n`; continue; }
+            const chunk = `<file path="${p}">\n${c}\n</file>\n`;
+            if (chunk.length > budget) { ctx += `\n(${p} omitted for length)`; continue; }
+            ctx += chunk; budget -= chunk.length;
+          }
+          return SYSTEM + (fileEntries.length ? `\n\nCURRENT PROJECT FILES:\n${ctx}` : "\n\nThe project is empty. Create it from scratch.");
+        };
+        const instructions = buildCtx(120_000);
+        // Groq's free tier only accepts small requests, so it gets a trimmed view of big projects.
+        const smallInstructions = buildCtx(16_000);
 
         const recent = body.messages.slice(-20);
         const textMessages: ModelMessage[] = recent.map((m) => ({ role: m.role, content: m.content.slice(0, 20_000) }));
@@ -136,8 +141,9 @@ export const Route = createFileRoute("/api/generate")({
             } as Parameters<typeof streamText>[0]);
           }
           const p = s.provider === "groq" ? groq! : gemini!;
+          const sys = s.provider === "groq" ? smallInstructions + (s.vision ? "" : noteForBlind) : system;
           return streamText({
-            model: p.chat(s.model), system, messages, abortSignal: request.signal, maxRetries: 0,
+            model: p.chat(s.model), system: sys, messages, abortSignal: request.signal, maxRetries: 0,
             ...(s.maxOutputTokens ? { maxOutputTokens: s.maxOutputTokens } : {}),
             providerOptions: { openai: { reasoningEffort: "low" } },
           });
@@ -157,9 +163,10 @@ export const Route = createFileRoute("/api/generate")({
                   else if (part.type === "error") {
                     const e = part.error as { statusCode?: number; message?: string };
                     console.error(`[generate] ${step.provider}/${step.model} failed`, e?.statusCode, e?.message);
-                    lastMsg = e?.statusCode === 429 ? "All free AI engines are busy right now. Please wait a minute and try again."
-                      : e?.statusCode === 402 ? "The AI service is temporarily unavailable. Please try again shortly."
-                      : e?.message || lastMsg;
+                    const busy = "All free AI engines are busy right now. Please wait a minute and try again — your project is safe.";
+                    // Keep the most useful reason: a later "out of allowance" from the last backup shouldn't hide that the free engines were just busy.
+                    lastMsg = e?.statusCode === 429 || e?.statusCode === 402 || e?.statusCode === 413 ? busy
+                      : lastMsg === busy ? busy : e?.message || lastMsg;
                     failed = true;
                     break;
                   }
