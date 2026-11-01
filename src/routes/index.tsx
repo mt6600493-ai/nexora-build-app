@@ -25,7 +25,7 @@ const FEATURES = [
   { icon: Wand2, title: "AI-Powered Builder", body: "Turn plain-language ideas into real, working apps." },
   { icon: Code2, title: "Code Generation", body: "Clean, readable files you can edit in a full editor." },
   { icon: MonitorPlay, title: "Live Preview", body: "See your app instantly on desktop, tablet and mobile." },
-  { icon: Import, title: "Import Projects", body: "Bring code from GitHub, Lovable, Vercel, Netlify or ZIP." },
+  { icon: Import, title: "Import Projects", body: "Bring code from GitHub, Vercel, Netlify or a ZIP file." },
 ];
 
 function Landing() {

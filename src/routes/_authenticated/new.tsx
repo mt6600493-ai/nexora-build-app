@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/new")({
 });
 
 const SOURCES = [
-  { id: "lovable", name: "Lovable", hint: "Import via the GitHub repo your Lovable project syncs to", kind: "github" },
+  { id: "lovable", name: "Other AI builder", hint: "Import via the GitHub repo your project syncs to", kind: "github" },
   { id: "github", name: "GitHub", hint: "Import any public GitHub repository", kind: "github" },
   { id: "vercel", name: "Vercel", hint: "Import the GitHub repo connected to your Vercel project", kind: "github" },
   { id: "netlify", name: "Netlify", hint: "Import the repo linked to your Netlify site", kind: "github" },
@@ -210,7 +210,7 @@ function NewProject() {
               )}
               {progress && <p className="mt-2 text-sm text-muted-foreground">{progress}</p>}
               <p className="mt-4 flex gap-2 text-xs text-muted-foreground"><Info className="h-4 w-4 shrink-0" />
-                Lovable, Vercel and Netlify projects are imported through their connected GitHub repository (public repos), or export your code as a ZIP. Every import becomes your own independent copy in My Projects, saved permanently to your account, so you can change anything.</p>
+                Projects from other AI builders, Vercel and Netlify are imported through their connected GitHub repository (public repos), or export your code as a ZIP. Every import becomes your own independent copy in My Projects, saved permanently to your account, so you can change anything.</p>
             </div>
           </div>
         </TabsContent>
