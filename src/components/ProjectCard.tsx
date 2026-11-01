@@ -10,7 +10,7 @@ export function ProjectCard({ p }: { p: Project }) {
   const doc = buildPreview(p.files);
   return (
     <Link to="/project/$id" params={{ id: p.id }}
-      className="group overflow-hidden rounded-2xl border border-border bg-card transition hover:border-primary/60 hover:shadow-glow">
+      className="group overflow-hidden rounded-2xl border border-border mirror-card transition hover:border-primary/60 hover:shadow-glow">
       <div className="relative h-36 overflow-hidden bg-muted">
         {doc ? (
           <iframe title={p.name} srcDoc={doc} sandbox="allow-scripts" tabIndex={-1}
