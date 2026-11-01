@@ -49,8 +49,8 @@ const hits = new Map<string, number[]>();
 function allowed(userId: string) {
   const now = Date.now();
   const arr = (hits.get(userId) ?? []).filter((t) => now - t < 60 * 60 * 1000);
-  if (arr.length >= 60) return false;
-  if (arr.filter((t) => now - t < 60 * 1000).length >= 6) return false;
+  if (arr.length >= 150) return false;
+  if (arr.filter((t) => now - t < 60 * 1000).length >= 10) return false;
   arr.push(now);
   hits.set(userId, arr);
   return true;
@@ -112,8 +112,13 @@ export const Route = createFileRoute("/api/generate")({
         // Groq's free tier only accepts small requests, so it gets a trimmed view of big projects.
         const smallInstructions = buildCtx(16_000);
 
-        const recent = body.messages.slice(-20);
-        const textMessages: ModelMessage[] = recent.map((m) => ({ role: m.role, content: m.content.slice(0, 20_000) }));
+        // Old replies carry full file code that is already in CURRENT PROJECT FILES; strip it so long chats never overflow.
+        const recent = body.messages.slice(-12);
+        const textMessages: ModelMessage[] = recent.map((m, i) => {
+          const last = i === recent.length - 1;
+          const c = m.role === "assistant" ? m.content.replace(/<file path="([^"]+)">[\s\S]*?(<\/file>|$)/g, "[updated $1]") : m.content;
+          return { role: m.role, content: c.slice(0, last ? 20_000 : 3_000) };
+        });
         // Attach images to the latest user message for vision-capable models.
         const visionMessages: ModelMessage[] = images.length
           ? textMessages.map((m, i) => i === textMessages.length - 1 && m.role === "user"

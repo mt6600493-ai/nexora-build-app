@@ -15,6 +15,7 @@ const CHAIN: ProviderStep[] = [
   // Groq: very fast, but its free tier allows only ~8k tokens per minute per model.
   { provider: "groq", model: "openai/gpt-oss-120b", vision: false, maxOutputTokens: 32000 },
   { provider: "groq", model: "qwen/qwen3.8-27b", vision: false, maxOutputTokens: 16000 },
+  { provider: "groq", model: "openai/gpt-oss-20b", vision: false, maxOutputTokens: 16000 },
   { provider: "gemini", model: "gemini-3.6-flash", vision: true },
   { provider: "lovable", model: "openai/gpt-6-astra", vision: true },
 ];

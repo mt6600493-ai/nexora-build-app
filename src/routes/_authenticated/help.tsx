@@ -11,7 +11,7 @@ const FAQ = [
   ["How do I build an app?", "Click New Project, describe your idea in plain language and press Generate. Nexora AI writes the files and shows a live preview. Keep chatting to add features or change the design."],
   ["Can I edit the code myself?", "Yes. Switch to Code in the workspace, pick a file from the explorer and edit. Changes save automatically and the preview refreshes."],
   ["How does responsive preview work?", "Use the desktop, tablet and mobile buttons above the preview to check every screen size."],
-  ["How do I import from Lovable, Vercel or Netlify?", "These projects live in a GitHub repository. Paste the public repo link in Import Project, or download your code as a ZIP and upload it."],
+  ["How do I import from other builders, Vercel or Netlify?", "These projects live in a GitHub repository. Paste the public repo link in Import Project, or download your code as a ZIP and upload it."],
   ["Why can't some imported projects preview?", "Projects using frameworks like React with a build step (Vite, Next.js) need compiling, which the instant preview doesn't do. You can still edit and export them, or ask the AI to convert them."],
   ["How do I deploy?", "Click Deploy → Download ZIP, then drop the folder into Netlify Drop or Vercel to go live."],
   ["Are there credits?", "No. There is no credit balance. Fair-use limits only prevent abuse."],
