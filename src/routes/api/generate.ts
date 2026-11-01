@@ -49,8 +49,8 @@ const hits = new Map<string, number[]>();
 function allowed(userId: string) {
   const now = Date.now();
   const arr = (hits.get(userId) ?? []).filter((t) => now - t < 60 * 60 * 1000);
-  if (arr.length >= 150) return false;
-  if (arr.filter((t) => now - t < 60 * 1000).length >= 10) return false;
+  if (arr.length >= 1000) return false;
+  if (arr.filter((t) => now - t < 60 * 1000).length >= 30) return false;
   arr.push(now);
   hits.set(userId, arr);
   return true;
