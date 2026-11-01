@@ -34,7 +34,7 @@ function Dashboard() {
       <p className="mt-1 text-sm text-muted-foreground">Here's what's happening with your projects today.</p>
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-border bg-card p-5">
+          <div key={s.label} className="rounded-2xl border border-border mirror-card p-5">
             <div className="text-sm text-muted-foreground">{s.label}</div>
             <div className="mt-2 font-display text-3xl font-semibold">{isLoading ? "–" : s.value}</div>
           </div>
