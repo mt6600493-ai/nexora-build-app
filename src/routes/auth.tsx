@@ -117,20 +117,26 @@ function AuthPage() {
   }
 
   async function google() {
-    if (redirect) sessionStorage.setItem("nexora:after-auth", target);
+    sessionStorage.setItem("nexora:after-auth", target);
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-    if (r.error) toast.error("Google sign-in failed. Please try again.");
+    if (r.error) { toast.error("Google sign-in failed. Please try again."); return; }
+    if (r.redirected) return;
+    navigate({ to: target as "/dashboard", replace: true });
   }
-
-  useEffect(() => {
-    if (user) {
-      const after = sessionStorage.getItem("nexora:after-auth");
-      if (after) { sessionStorage.removeItem("nexora:after-auth"); navigate({ to: safe(after) as "/dashboard", replace: true }); }
-    }
-  }, [user, navigate]);
 
   const title = mode === "signup" ? "Create Your Account" : mode === "forgot" ? "Reset your password" : mode === "magic" ? "One-click sign in" : "Welcome Back";
   const sub = mode === "signup" ? "Join Nexora AI and start building today." : mode === "forgot" ? "We'll email you a reset link." : mode === "magic" ? "Enter your email and we'll send you a sign-in link. No password needed." : "Sign in to continue to your account";
+
+  if (finishing || (user && !loading)) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">Signing you into Nexora AI…</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
