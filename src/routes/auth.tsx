@@ -49,8 +49,41 @@ function AuthPage() {
   const [sent, setSent] = useState<string | null>(null);
   const target = safe(redirect);
 
+  const [finishing, setFinishing] = useState(false);
+
+  // Coming back from Google / an email link: finish the sign-in from the URL before showing the form,
+  // so the page never bounces back to the login screen.
   useEffect(() => {
-    if (!loading && user) navigate({ to: target as "/dashboard", replace: true });
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+    const code = query.get("code");
+    const err = hash.get("error_description") || query.get("error_description");
+    if (err) { toast.error(err); return; }
+    if (!(access_token && refresh_token) && !code) return;
+    setFinishing(true);
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        const r = access_token && refresh_token
+          ? await supabase.auth.setSession({ access_token, refresh_token })
+          : await supabase.auth.exchangeCodeForSession(code!);
+        if (r.error) { toast.error("Sign-in didn't finish. Please try again."); setFinishing(false); return; }
+      }
+      window.history.replaceState(null, "", window.location.pathname);
+      const after = sessionStorage.getItem("nexora:after-auth");
+      sessionStorage.removeItem("nexora:after-auth");
+      navigate({ to: safe(after ?? redirect) as "/dashboard", replace: true });
+    })();
+  }, [navigate, redirect]);
+
+  useEffect(() => {
+    if (!loading && user) {
+      const after = sessionStorage.getItem("nexora:after-auth");
+      sessionStorage.removeItem("nexora:after-auth");
+      navigate({ to: (after ? safe(after) : target) as "/dashboard", replace: true });
+    }
   }, [user, loading, target, navigate]);
 
   async function submit(e: React.FormEvent) {
