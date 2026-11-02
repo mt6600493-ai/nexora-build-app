@@ -508,7 +508,7 @@ function Workspace() {
           <Button variant="outline" size="sm" onClick={() => setSellOpen(true)}><Github className="h-4 w-4" /><span className="hidden sm:inline">GitHub, Domain & Sell</span></Button>
           <Button size="sm" className={isLive && !hasUnpublished ? "" : "bg-brand"} variant={isLive && !hasUnpublished ? "outline" : "default"} onClick={() => setDeployOpen(true)}>
             {hasUnpublished ? <span className="relative flex h-2 w-2"><span className="absolute h-2 w-2 animate-ping rounded-full bg-primary-foreground/70" /><span className="h-2 w-2 rounded-full bg-primary-foreground" /></span> : isLive ? <Globe className="h-4 w-4 text-success" /> : <Rocket className="h-4 w-4" />}
-            <span className="hidden sm:inline">{hasUnpublished ? "Publish changes" : isLive ? "Published" : "Publish"}</span>
+            <span>{hasUnpublished ? "Publish changes" : isLive ? "Published" : <><span className="sm:hidden">Publish</span><span className="hidden sm:inline">Publish free on Google</span></>}</span>
           </Button>
         </div>
       </header>
