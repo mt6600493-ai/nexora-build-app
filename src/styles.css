@@ -104,9 +104,12 @@
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    /* Fixed deep-space Earth backdrop (works on phones, unlike background-attachment: fixed) with a mirror sheen and a vignette for readability. */
     background:
       radial-gradient(ellipse 120% 70% at 50% 0%, oklch(1 0 0 / 0.07), transparent 55%),
-      radial-gradient(ellipse 140% 100% at 50% 50%, transparent 60%, oklch(0 0 0 / 0.45) 100%);
+      radial-gradient(ellipse 140% 100% at 50% 50%, transparent 55%, oklch(0 0 0 / 0.55) 100%),
+      linear-gradient(oklch(0.12 0.03 275 / 0.55), oklch(0.12 0.03 275 / 0.35)),
+      url("./assets/earth-space.jpg") center bottom / cover no-repeat;
   }
   #root, body > div { position: relative; z-index: 1; }
   h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }

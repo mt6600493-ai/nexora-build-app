@@ -49,8 +49,41 @@ function AuthPage() {
   const [sent, setSent] = useState<string | null>(null);
   const target = safe(redirect);
 
+  const [finishing, setFinishing] = useState(false);
+
+  // Coming back from Google / an email link: finish the sign-in from the URL before showing the form,
+  // so the page never bounces back to the login screen.
   useEffect(() => {
-    if (!loading && user) navigate({ to: target as "/dashboard", replace: true });
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+    const code = query.get("code");
+    const err = hash.get("error_description") || query.get("error_description");
+    if (err) { toast.error(err); return; }
+    if (!(access_token && refresh_token) && !code) return;
+    setFinishing(true);
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        const r = access_token && refresh_token
+          ? await supabase.auth.setSession({ access_token, refresh_token })
+          : await supabase.auth.exchangeCodeForSession(code!);
+        if (r.error) { toast.error("Sign-in didn't finish. Please try again."); setFinishing(false); return; }
+      }
+      window.history.replaceState(null, "", window.location.pathname);
+      const after = sessionStorage.getItem("nexora:after-auth");
+      sessionStorage.removeItem("nexora:after-auth");
+      navigate({ to: safe(after ?? redirect) as "/dashboard", replace: true });
+    })();
+  }, [navigate, redirect]);
+
+  useEffect(() => {
+    if (!loading && user) {
+      const after = sessionStorage.getItem("nexora:after-auth");
+      sessionStorage.removeItem("nexora:after-auth");
+      navigate({ to: (after ? safe(after) : target) as "/dashboard", replace: true });
+    }
   }, [user, loading, target, navigate]);
 
   async function submit(e: React.FormEvent) {
@@ -84,20 +117,26 @@ function AuthPage() {
   }
 
   async function google() {
-    if (redirect) sessionStorage.setItem("nexora:after-auth", target);
+    sessionStorage.setItem("nexora:after-auth", target);
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-    if (r.error) toast.error("Google sign-in failed. Please try again.");
+    if (r.error) { toast.error("Google sign-in failed. Please try again."); return; }
+    if (r.redirected) return;
+    navigate({ to: target as "/dashboard", replace: true });
   }
-
-  useEffect(() => {
-    if (user) {
-      const after = sessionStorage.getItem("nexora:after-auth");
-      if (after) { sessionStorage.removeItem("nexora:after-auth"); navigate({ to: safe(after) as "/dashboard", replace: true }); }
-    }
-  }, [user, navigate]);
 
   const title = mode === "signup" ? "Create Your Account" : mode === "forgot" ? "Reset your password" : mode === "magic" ? "One-click sign in" : "Welcome Back";
   const sub = mode === "signup" ? "Join Nexora AI and start building today." : mode === "forgot" ? "We'll email you a reset link." : mode === "magic" ? "Enter your email and we'll send you a sign-in link. No password needed." : "Sign in to continue to your account";
+
+  if (finishing || (user && !loading)) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">Signing you into Nexora AI…</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -159,7 +198,7 @@ function AuthPage() {
           )}
         </div>
       </div>
-      <div className="relative hidden overflow-hidden border-l border-border bg-card bg-hero lg:flex lg:flex-col lg:justify-center lg:px-16">
+      <div className="relative hidden overflow-hidden border-l border-border bg-card/30 backdrop-blur-md lg:flex lg:flex-col lg:justify-center lg:px-16">
         <h2 className="text-4xl font-bold">Build anything<br />with AI</h2>
         <ul className="mt-8 space-y-3 text-muted-foreground">
           {["Create websites & apps", "Edit with natural language", "Live preview on every device", "No credit system"].map((x) => (
