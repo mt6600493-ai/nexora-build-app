@@ -34,7 +34,18 @@ GAMES (when the user asks for a game):
 - Support keyboard AND touch controls (on-screen buttons or swipe) so it works on phones. Call canvas.focus() / listen on window for keys.
 - Include a start screen, score, lives/timer, pause, game over and restart. Save the high score in localStorage.
 - Sound effects: generate them with the Web Audio API (oscillators), no external audio files.
-- 3D games: use Three.js via an import map from https://unpkg.com/three@0.160.0/build/three.module.js (type="module"). Keep scenes light (low-poly shapes, few lights) so they run on phones. Be honest that browser games are smaller than big console/mobile titles.
+- 3D games (anything the user calls 3D): build a REAL, polished 3D game with Three.js, never plain grey boxes. Rules:
+  * Load via an import map: "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" in a <script type="module">.
+  * Renderer: antialias, renderer.setPixelRatio(Math.min(devicePixelRatio,2)), outputColorSpace SRGB, ACESFilmic tone mapping, shadowMap enabled (PCFSoft), resize handler.
+  * Look: a sky (gradient sky dome shader or THREE.Sky addon) + scene.fog, HemisphereLight + DirectionalLight sun with shadows, MeshStandardMaterial/MeshPhysicalMaterial with varied colors, roughness and metalness. Use RoomEnvironment + PMREMGenerator for reflections. Texture large surfaces (ground, roads, walls) with procedural CanvasTexture patterns (grass noise, asphalt with lane lines, tiles) using RepeatWrapping — never a flat single-color plane.
+  * Models: build recognisable objects from grouped, beveled parts (cars with body, cabin, glass, 4 rotating wheels, headlights; characters with head, torso, arms, legs that animate when walking; trees with trunk + layered foliage; buildings with windows). Add scenery (trees, rocks, buildings, clouds, particles) using InstancedMesh for repeats.
+  * Camera: smooth third-person follow camera (lerp position, lookAt ahead of player), or first-person with pointer lock when it fits.
+  * Gameplay: physics-feel with named constants (ACCEL, DRAG, GRAVITY, JUMP), delta clamped to 0.05, collisions with Box3/sphere checks, enemies/obstacles/collectibles, increasing difficulty, particle effects for hits/explosions/pickups, camera shake.
+  * Controls: keyboard (WASD/arrows, Space) AND mobile on-screen virtual joystick + action buttons (touch events, shown on touch devices).
+  * HUD: glassmorphism overlay in HTML/CSS (score, health bar, speed/timer, mini-map or progress), start menu, pause, game over with restart; high score in localStorage.
+  * Sound: Web Audio API synthesized engine/shoot/jump/explosion/pickup sounds and a soft background loop, started on first user tap.
+  * Performance: under ~150 draw calls, reuse geometries/materials, works smoothly on phones.
+  Split into index.html, style.css and game.js (module). Be honest that browser games are smaller than big console titles.
 - Online multiplayer: use PeerJS from https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js. Show "Create room" (generate a short room code, use it as the peer id with a "nexora-" prefix) and "Join room" (enter code). The host runs the game state and sends updates; the guest sends inputs. Also offer a same-device 2-player mode as fallback, and show clear connection status/errors.
 
 LANGUAGE:
