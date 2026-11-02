@@ -198,7 +198,7 @@ function AuthPage() {
           )}
         </div>
       </div>
-      <div className="relative hidden overflow-hidden border-l border-border bg-card bg-hero lg:flex lg:flex-col lg:justify-center lg:px-16">
+      <div className="relative hidden overflow-hidden border-l border-border bg-card/30 backdrop-blur-md lg:flex lg:flex-col lg:justify-center lg:px-16">
         <h2 className="text-4xl font-bold">Build anything<br />with AI</h2>
         <ul className="mt-8 space-y-3 text-muted-foreground">
           {["Create websites & apps", "Edit with natural language", "Live preview on every device", "No credit system"].map((x) => (
