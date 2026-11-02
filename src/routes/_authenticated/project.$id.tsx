@@ -639,6 +639,11 @@ function PublishDialog({ open, onOpenChange, project, canPreview, hasUnpublished
               <Switch checked={live} disabled={busy || (!canPreview && !live)} onCheckedChange={(v) => act(v ? onPublish : onUnpublish)} aria-label="Publish" />
             </div>
             {!canPreview && !live && <p className="mt-3 text-xs text-muted-foreground">This project needs an index.html page before it can go live. Use “Convert to instant live version” first.</p>}
+            {canPreview && !live && (
+              <Button className="mt-3 w-full bg-brand" disabled={busy} onClick={() => act(onPublish)}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}Publish free — live link + Google
+              </Button>
+            )}
             {live && hasUnpublished && (
               <Button className="mt-3 w-full bg-brand" disabled={busy} onClick={() => act(onPublish)}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}Publish changes
