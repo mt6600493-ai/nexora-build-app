@@ -116,13 +116,15 @@ function AuthPage() {
     } finally { setBusy(false); }
   }
 
-  async function google() {
+  async function social(provider: "google" | "apple") {
     sessionStorage.setItem("nexora:after-auth", target);
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-    if (r.error) { toast.error("Google sign-in failed. Please try again."); return; }
+    const r = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin + "/auth" });
+    if (r.error) { toast.error(`${provider === "apple" ? "Apple" : "Google"} sign-in failed. Please try again.`); return; }
     if (r.redirected) return;
     navigate({ to: target as "/dashboard", replace: true });
   }
+  const google = () => social("google");
+  const apple = () => social("apple");
 
   const title = mode === "signup" ? "Create Your Account" : mode === "forgot" ? "Reset your password" : mode === "magic" ? "One-click sign in" : "Welcome Back";
   const sub = mode === "signup" ? "Join Nexora AI and start building today." : mode === "forgot" ? "We'll email you a reset link." : mode === "magic" ? "Enter your email and we'll send you a sign-in link. No password needed." : "Sign in to continue to your account";
@@ -182,6 +184,10 @@ function AuthPage() {
                   <Button variant="outline" className="w-full" onClick={google}>
                     <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1H12v2.98h5.35c-.23 1.4-1.66 4.1-5.35 4.1a5.98 5.98 0 0 1 0-11.96c1.84 0 3.07.78 3.78 1.46l2.58-2.49A9.4 9.4 0 0 0 12 2.6a9.4 9.4 0 1 0 0 18.8c5.42 0 9.02-3.81 9.02-9.18 0-.62-.07-1.09-.15-1.56z" /></svg>
                     Google
+                  </Button>
+                  <Button variant="outline" className="mt-2 w-full" onClick={apple}>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.19-1.72-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.62 1.11 8.79.73 1.06 1.6 2.25 2.75 2.2 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.71.71 2.88.69 1.19-.02 1.94-1.08 2.67-2.14.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.34-3.54zM14.18 6.13c.61-.74 1.02-1.76.91-2.78-.88.04-1.94.59-2.57 1.32-.56.65-1.06 1.69-.93 2.69.98.08 1.98-.5 2.59-1.23z" /></svg>
+                    Apple
                   </Button>
                   {mode === "magic" ? (
                     <Button asChild variant="ghost" className="mt-2 w-full"><Link to="/auth" search={{ mode: "signin", redirect }}>Sign in with password instead</Link></Button>
