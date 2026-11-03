@@ -1,3 +1,4 @@
+import { publicSlug } from "@/lib/slug";
 import { Cloud, CloudOff, CloudUpload, Download, FileCode, Github, Globe, History, Image as ImageIcon, Rocket, Settings, HardDrive, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ export function ProjectOverview({ open, onOpenChange, project, files, saveState,
   const codeSize = values.reduce((n, v) => (isAssetRef(v) || isInlineImage(v) ? n : n + v.length), 0);
   const pages = Object.keys(files).filter((p) => p.endsWith(".html")).length;
   const live = project.visibility === "public";
-  const url = typeof window === "undefined" ? "" : `${window.location.origin}/p/${project.id}`;
+  const url = typeof window === "undefined" ? "" : `${window.location.origin}/p/${publicSlug(project.name, project.id)}`;
   const go = (a: Action) => { onOpenChange(false); onAction(a); };
 
   const stats = [
