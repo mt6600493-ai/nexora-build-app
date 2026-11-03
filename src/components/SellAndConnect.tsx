@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Github, Globe, Loader2, PackageCheck, Send, Tag } from "lucide-react";
+import { Github, Globe, Loader2, PackageCheck, Send, Smartphone, Tag } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -68,9 +68,10 @@ export function SellAndConnect({ open, onOpenChange, project, files, ownerName, 
           <DialogDescription>Works for every project — including imported copies, which are fully yours.</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="github">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="github"><Github className="mr-1 h-4 w-4" />GitHub</TabsTrigger>
             <TabsTrigger value="domain"><Globe className="mr-1 h-4 w-4" />Domain</TabsTrigger>
+            <TabsTrigger value="app"><Smartphone className="mr-1 h-4 w-4" />App</TabsTrigger>
             <TabsTrigger value="sell"><Tag className="mr-1 h-4 w-4" />Sell</TabsTrigger>
           </TabsList>
 
@@ -119,6 +120,24 @@ export function SellAndConnect({ open, onOpenChange, project, files, ownerName, 
               </div>
             )}
             <Button variant="outline" className="w-full" onClick={() => { onSaved({ custom_domain: host }); toast.success("Domain saved"); }}>Save domain</Button>
+          </TabsContent>
+
+          <TabsContent value="app" className="space-y-3 pt-3 text-xs text-muted-foreground">
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-medium text-foreground">Google Play Store</p>
+              <ol className="mt-1 list-decimal space-y-1 pl-4">
+                <li>Publish this project, or put it on your own domain (Domain tab).</li>
+                <li>Open <a className="text-glow underline" href="https://www.pwabuilder.com" target="_blank" rel="noreferrer">PWABuilder</a>, paste your public link and choose <b>Android</b> → download the package.</li>
+                <li>Create a Google Play developer account (one-time $25) and upload the package.</li>
+              </ol>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="font-medium text-foreground">Uptodown and other stores</p>
+              <ol className="mt-1 list-decimal space-y-1 pl-4">
+                <li>Make the Android package with PWABuilder (above) and get the APK file.</li>
+                <li>Sign up at <a className="text-glow underline" href="https://developers.uptodown.com" target="_blank" rel="noreferrer">Uptodown for developers</a> (free) and upload the APK.</li>
+              </ol>
+            </div>
           </TabsContent>
 
           <TabsContent value="sell" className="space-y-4 pt-3">
