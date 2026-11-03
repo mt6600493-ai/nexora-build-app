@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { LogoMark } from "@/components/Logo";
 import { buildPreview } from "@/lib/files";
 import { getPublishedProject } from "@/lib/published.functions";
+import { idFromSlug } from "@/lib/slug";
 
 export const Route = createFileRoute("/p/$id")({
   loader: async ({ params }) => {
-    const parsed = /^[0-9a-f-]{36}$/i.test(params.id);
-    if (!parsed) throw notFound();
-    const project = await getPublishedProject({ data: { id: params.id } });
+    const id = idFromSlug(params.id);
+    if (!id) throw notFound();
+    const project = await getPublishedProject({ data: { id } });
     if (!project) throw notFound();
     return { project };
   },

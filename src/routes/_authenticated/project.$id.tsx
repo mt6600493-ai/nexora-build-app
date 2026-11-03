@@ -1,3 +1,4 @@
+import { publicSlug } from "@/lib/slug";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -621,7 +622,7 @@ function PublishDialog({ open, onOpenChange, project, canPreview, hasUnpublished
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const live = project.visibility === "public";
-  const url = typeof window === "undefined" ? "" : `${window.location.origin}/p/${project.id}`;
+  const url = typeof window === "undefined" ? "" : `${window.location.origin}/p/${publicSlug(project.name, project.id)}`;
   const act = async (fn: () => Promise<boolean>) => { setBusy(true); await fn(); setBusy(false); };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
