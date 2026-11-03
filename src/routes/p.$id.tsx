@@ -14,10 +14,10 @@ export const Route = createFileRoute("/p/$id")({
   },
   head: ({ loaderData, params }) => {
     const name = loaderData?.project.name ?? "Published project";
-    const desc = (loaderData?.project.description || `${name} — built with Nexora AI.`).slice(0, 160);
+    const desc = (loaderData?.project.description || name).slice(0, 160);
     return {
       meta: [
-        { title: `${name} — made with Nexora AI` },
+        { title: name },
         { name: "description", content: desc },
         { property: "og:title", content: name },
         { property: "og:description", content: desc },
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/p/$id")({
         <LogoMark className="mx-auto h-12 w-12" />
         <h1 className="mt-4 text-xl font-semibold">This project isn't published</h1>
         <p className="mt-2 text-sm text-muted-foreground">The link may be wrong, or the owner has unpublished it.</p>
-        <Link to="/" className="mt-6 inline-block text-glow underline">Build your own with Nexora AI</Link>
+        <Link to="/" className="mt-6 inline-block text-glow underline">Go home</Link>
       </div>
     </div>
   ),
@@ -75,9 +75,6 @@ function PublishedPage() {
           Buy this project{project.sale_price ? ` · ${project.sale_price}` : ""}
         </a>
       )}
-      <Link to="/" className="fixed bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur hover:text-foreground">
-        <LogoMark className="h-4 w-4" /> Made with Nexora AI
-      </Link>
     </div>
   );
 }
