@@ -6,6 +6,7 @@ import { timeAgo, type Project } from "@/lib/projects";
 import { isAssetRef, isInlineImage } from "@/lib/assets";
 import type { FileMap } from "@/lib/files";
 import type { SaveState } from "@/lib/save-queue";
+import { ProjectConsole } from "@/components/ProjectConsole";
 
 type Action = "settings" | "history" | "publish" | "export" | "github";
 
@@ -63,6 +64,8 @@ export function ProjectOverview({ open, onOpenChange, project, files, saveState,
           <Row label="App data">Saved in each visitor's own browser</Row>
           <Row label="Created"><span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{new Date(project.created_at).toLocaleDateString()}</span></Row>
         </div>
+
+        <ProjectConsole project={project} files={files} url={url} hasUnpublished={hasUnpublished} go={go} />
 
         <div className="grid grid-cols-2 gap-2">
           <Button className="bg-brand" onClick={() => go("publish")}><Rocket className="h-4 w-4" />{live ? (hasUnpublished ? "Publish changes" : "Publish settings") : "Publish"}</Button>
