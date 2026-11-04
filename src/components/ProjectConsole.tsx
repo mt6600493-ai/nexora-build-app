@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, BarChart3, Bot, Cloud, CreditCard, Database, FileCode, Gauge, Github, Globe, History, Image as ImageIcon, Infinity as InfinityIcon, Link2, Mail, PenLine, Plug, Rocket, Search, Settings, Shield, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, Bot, CreditCard, Database, FileCode, Gauge, Github, Globe, History, Image as ImageIcon, Infinity as InfinityIcon, Mail, PenLine, Plug, Rocket, Search, Settings, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isAssetRef, isInlineImage } from "@/lib/assets";
 import type { FileMap } from "@/lib/files";
@@ -104,4 +104,3 @@ export function ProjectConsole({ project, files, url, hasUnpublished, go }: {
   );
 }
 
-export const _icons = { Cloud, Link2 };
