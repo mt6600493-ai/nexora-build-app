@@ -50,11 +50,18 @@ function NewProject() {
   const { tab = "ai", kind } = Route.useSearch();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
+  const autoRan = useRef(false);
   useEffect(() => {
-    const p = sessionStorage.getItem("nexora:pending");
-    if (p) { sessionStorage.removeItem("nexora:pending"); setPrompt(p); }
+    const p = localStorage.getItem("nexora:pending") || sessionStorage.getItem("nexora:pending");
+    if (p) {
+      localStorage.removeItem("nexora:pending"); sessionStorage.removeItem("nexora:pending");
+      setPrompt(p);
+      // Prompt typed on the homepage before signing in: start building right away.
+      if (user && !autoRan.current) { autoRan.current = true; void startAI(p); }
+    }
     else if (kind) setPrompt((cur) => cur || (kind === "app" ? "A modern web app that " : "A modern website for "));
-  }, [kind]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, user]);
 
   async function attach(list: File[]) {
     const added: Attachment[] = [];
