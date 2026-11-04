@@ -33,17 +33,14 @@ function Landing() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Strict sign-in wall: everyone goes straight to sign-in (or the dashboard if already signed in).
-  useEffect(() => {
-    if (loading) return;
-    if (user) navigate({ to: "/dashboard", replace: true });
-    else navigate({ to: "/auth", replace: true });
-  }, [loading, user, navigate]);
+  const [askLogin, setAskLogin] = useState(false);
+  void loading; void useEffect;
 
   function start(p = prompt) {
-    if (p.trim()) sessionStorage.setItem("nexora:pending", p.trim());
+    if (!p.trim()) { navigate({ to: user ? "/new" : "/auth", search: user ? undefined : { redirect: "/new", mode: "signup" } } as never); return; }
+    localStorage.setItem("nexora:pending", p.trim());
     if (user) navigate({ to: "/new" });
-    else navigate({ to: "/auth", search: { redirect: "/new", mode: "signup" } });
+    else setAskLogin(true);
   }
 
   return (
