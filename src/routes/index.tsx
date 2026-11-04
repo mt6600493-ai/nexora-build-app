@@ -21,6 +21,12 @@ export const Route = createFileRoute("/")({
 });
 
 const CHIPS = ["Web App", "Website", "Dashboard", "E-commerce", "Portfolio", "Education"];
+const SAMPLES = [
+  { e: "🎮", t: "3D Racing Game", p: "A 3D car racing game with neon tracks, score and timer" },
+  { e: "🧩", t: "Puzzle Game", p: "A colorful match-3 puzzle game with levels and sound" },
+  { e: "📱", t: "Todo Web App", p: "A beautiful todo app with categories, dark mode and saving" },
+  { e: "🌐", t: "Business Website", p: "A modern restaurant website with menu, gallery and contact form" },
+];
 const FEATURES = [
   { icon: Wand2, title: "AI-Powered Builder", body: "Turn plain-language ideas into real, working apps." },
   { icon: Code2, title: "Code Generation", body: "Clean, readable files you can edit in a full editor." },
@@ -91,6 +97,19 @@ function Landing() {
         <img src={hero} alt="Nexora AI app previews" width={1280} height={1024} className="w-full rounded-3xl" />
       </section>
 
+      <section className="mx-auto max-w-7xl px-6 pb-16">
+        <h2 className="mb-5 text-2xl font-bold">Try one in a click</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {SAMPLES.map((x) => (
+            <button key={x.t} onClick={() => start(x.p)} className="mirror-card rounded-2xl border border-border bg-card/60 p-5 text-left transition hover:-translate-y-1">
+              <div className="text-3xl">{x.e}</div>
+              <h3 className="mt-3 font-semibold">{x.t}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{x.p}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section id="features" className="mx-auto grid max-w-7xl gap-6 px-6 pb-24 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f) => (
           <div key={f.title} className="rounded-2xl border border-border bg-card/60 p-6">
@@ -112,6 +131,17 @@ function Landing() {
         <Button onClick={() => start()} size="lg" className="mt-10 bg-brand shadow-glow"><Rocket className="h-4 w-4" /> Start building free</Button>
       </section>
 
+      {askLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur" onClick={() => setAskLogin(false)}>
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 text-center shadow-glow" onClick={(e) => e.stopPropagation()}>
+            <Rocket className="mx-auto h-8 w-8 text-brand" />
+            <h3 className="mt-3 text-xl font-bold">Your idea is saved!</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Sign in once and building starts right away. You'll stay signed in.</p>
+            <Button className="mt-5 w-full bg-brand" onClick={() => navigate({ to: "/auth", search: { redirect: "/new", mode: "signup" } })}>Sign in & build</Button>
+            <button className="mt-3 text-xs text-muted-foreground" onClick={() => setAskLogin(false)}>Not now</button>
+          </div>
+        </div>
+      )}
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">© 2026 Nexora AI</footer>
     </div>
   );
