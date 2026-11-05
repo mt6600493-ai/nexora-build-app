@@ -71,7 +71,15 @@ type Body = {
   messages: { role: "user" | "assistant"; content: string }[];
   files: Record<string, string>;
   images?: string[];
+  mode?: "build" | "chat";
 };
+
+const CHAT_SYSTEM = `You are Nexora AI in CHAT MODE: a friendly expert product, design and engineering advisor.
+- Do NOT write or output project files. Never use <file path> blocks. Do not generate images. No code changes happen in this mode.
+- Discuss ideas, answer questions, give advice, review the design, and write clear step-by-step plans the user can later build in Build mode.
+- Short code snippets for explanation are fine, but keep the focus on planning and advice.
+- When a plan is ready, tell the user they can switch to Build mode to make it real.
+- Reply in the same language and script the user writes in.`;
 
 const json = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
@@ -98,6 +106,19 @@ export const Route = createFileRoute("/api/generate")({
 
         const body = (await request.json()) as Body;
         if (!Array.isArray(body.messages) || body.messages.length === 0) return json(400, "Missing prompt.");
+        const chatMode = body.mode === "chat";
+
+        // Plan limits are counted in the database so they can't be skipped from the browser.
+        const userSb = createClient(url, key, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
+        const { data: quota, error: qErr } = await userSb.rpc("consume_ai", { _kind: chatMode ? "chat" : "build" });
+        if (qErr) console.error("[generate] quota check failed", qErr.message);
+        const q = quota as { ok?: boolean; reason?: string } | null;
+        if (q && q.ok === false) {
+          const msg = q.reason === "chat" ? "LIMIT:You've used today's free chat messages. They refresh at midnight (Pakistan time), or upgrade to Premium for unlimited chat."
+            : q.reason === "monthly" ? "LIMIT:You've used this month's 100 free credits. Upgrade to Premium for unlimited building."
+            : "LIMIT:You've used today's 10 free credits. They refresh at midnight (Pakistan time), or upgrade to Premium for unlimited building. Chat mode is still free.";
+          return json(402, msg);
+        }
 
         const images = (Array.isArray(body.images) ? body.images : [])
           .slice(0, 4)
@@ -117,7 +138,7 @@ export const Route = createFileRoute("/api/generate")({
             if (chunk.length > budget) { ctx += `\n(${p} omitted for length)`; continue; }
             ctx += chunk; budget -= chunk.length;
           }
-          return SYSTEM + (fileEntries.length ? `\n\nCURRENT PROJECT FILES:\n${ctx}` : "\n\nThe project is empty. Create it from scratch.");
+          return (chatMode ? CHAT_SYSTEM : SYSTEM) + (fileEntries.length ? `\n\nCURRENT PROJECT FILES:\n${ctx}` : "\n\nThe project is empty. Create it from scratch.");
         };
         const instructions = buildCtx(120_000);
         // Groq's free tier only accepts small requests, so it gets a trimmed view of big projects.
