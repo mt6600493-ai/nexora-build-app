@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: Admin,
 });
 
-type Stats = Record<string, number>;
+type Stats = Partial<Record<"users" | "new_today" | "logins_today" | "premium" | "free" | "revenue_month" | "visits" | "visits_today" | "projects" | "published" | "ai_today", number>>;
 type Row = { id: string; email: string; created_at: string; last_sign_in_at: string | null; premium: boolean; premium_until: string | null };
 
 function Admin() {
