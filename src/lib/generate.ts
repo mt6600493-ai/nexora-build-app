@@ -9,6 +9,7 @@ export async function streamGenerate(
   onText: (full: string) => void,
   signal?: AbortSignal,
   images: string[] = [],
+  mode: "build" | "chat" = "build",
 ): Promise<{ text: string; error?: string }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -22,7 +23,7 @@ export async function streamGenerate(
     res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messages: messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), files: slimFiles, images }),
+      body: JSON.stringify({ messages: messages.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), files: slimFiles, images, mode }),
       signal: signal ?? null,
     });
   } catch (e) {
