@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          builds: number
+          chats: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          builds?: number
+          chats?: number
+          day: string
+          user_id: string
+        }
+        Update: {
+          builds?: number
+          chats?: number
+          day?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_assets: {
         Row: {
           created_at: string
@@ -49,6 +70,24 @@ export type Database = {
           },
         ]
       }
+      project_publishes: {
+        Row: {
+          first_published_at: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          first_published_at?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          first_published_at?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_versions: {
         Row: {
           created_at: string
@@ -83,6 +122,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      project_visits: {
+        Row: {
+          device: string
+          id: number
+          owner_id: string
+          project_id: string
+          visited_at: string
+        }
+        Insert: {
+          device?: string
+          id?: never
+          owner_id: string
+          project_id: string
+          visited_at?: string
+        }
+        Update: {
+          device?: string
+          id?: never
+          owner_id?: string
+          project_id?: string
+          visited_at?: string
+        }
+        Relationships: []
       }
       projects: {
         Row: {
@@ -144,11 +207,67 @@ export type Database = {
         }
         Relationships: []
       }
+      user_plans: {
+        Row: {
+          plan: string
+          premium_until: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          plan?: string
+          premium_until?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          plan?: string
+          premium_until?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      admin_set_plan: {
+        Args: { _months?: number; _premium: boolean; _uid: string }
+        Returns: undefined
+      }
+      admin_stats: { Args: never; Returns: Json }
+      admin_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          last_sign_in_at: string
+          premium: boolean
+          premium_until: string
+        }[]
+      }
+      consume_ai: { Args: { _kind: string }; Returns: Json }
       get_published_project: {
         Args: { _id: string }
         Returns: {
@@ -160,6 +279,14 @@ export type Database = {
           updated_at: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_premium: { Args: { _uid: string }; Returns: boolean }
       list_published_projects: {
         Args: never
         Returns: {
@@ -167,13 +294,21 @@ export type Database = {
           updated_at: string
         }[]
       }
+      my_quota: { Args: never; Returns: Json }
+      pk_today: { Args: never; Returns: string }
+      project_stats: { Args: { _project: string }; Returns: Json }
+      publish_allowance: { Args: { _uid: string }; Returns: Json }
+      record_visit: {
+        Args: { _device: string; _project: string }
+        Returns: undefined
+      }
       transfer_project: {
         Args: { _email: string; _id: string }
         Returns: undefined
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -300,6 +435,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

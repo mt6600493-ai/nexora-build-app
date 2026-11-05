@@ -29,6 +29,13 @@
       "when": 1792647427776,
       "tag": "0003_assets_and_publish_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793856678175,
+      "tag": "0004_plans_credits_admin_analytics",
+      "breakpoints": true
     }
   ]
 }
