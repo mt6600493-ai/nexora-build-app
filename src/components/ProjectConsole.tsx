@@ -1,9 +1,36 @@
 import { useState } from "react";
 import { ArrowLeft, BarChart3, Bot, CreditCard, Database, FileCode, Gauge, Github, Globe, History, Image as ImageIcon, Infinity as InfinityIcon, Mail, PenLine, Plug, Rocket, Search, Settings, Shield, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { isAssetRef, isInlineImage } from "@/lib/assets";
 import type { FileMap } from "@/lib/files";
 import type { Project } from "@/lib/projects";
+
+type Stats = { total: number; today: number; mobile: number; desktop: number; week: { day: string; visits: number }[] | null };
+function VisitorStats({ projectId }: { projectId: string }) {
+  const { data } = useQuery({ queryKey: ["stats", projectId], queryFn: async () => {
+    const { data, error } = await supabase.rpc("project_stats", { _project: projectId });
+    if (error) throw error; return data as unknown as Stats | null;
+  }, refetchInterval: 30_000 });
+  if (!data) return <p className="text-sm text-muted-foreground">Loading visitors…</p>;
+  const week = data.week ?? []; const max = Math.max(1, ...week.map((w) => w.visits));
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-3">
+      <div className="grid grid-cols-2 gap-2 text-center">
+        <div><div className="text-2xl font-bold">{data.total}</div><div className="text-xs text-muted-foreground">Total visitors</div></div>
+        <div><div className="text-2xl font-bold">{data.today}</div><div className="text-xs text-muted-foreground">Today</div></div>
+      </div>
+      <div className="flex h-24 items-end gap-1">{week.map((w) => (
+        <div key={w.day} className="flex flex-1 flex-col items-center gap-1">
+          <div className="w-full rounded-t bg-primary" style={{ height: `${(w.visits / max) * 80 + 2}px` }} title={`${w.visits} visits`} />
+          <span className="text-[9px] text-muted-foreground">{new Date(w.day).toLocaleDateString(undefined, { weekday: "short" })}</span>
+        </div>))}</div>
+      <div className="flex justify-between text-xs text-muted-foreground"><span>📱 Mobile {data.mobile}</span><span>💻 Desktop {data.desktop}</span></div>
+      <p className="text-[11px] text-muted-foreground">Only you can see these numbers.</p>
+    </div>
+  );
+}
 
 export type ConsoleAction = "settings" | "history" | "publish" | "export" | "github";
 
@@ -76,7 +103,7 @@ export function ProjectConsole({ project, files, url, hasUnpublished, go }: {
       {live && <img alt="QR code for the live link" className="mx-auto h-36 w-36 rounded-lg bg-card p-2" src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`} />}
       <Act a="publish">{live ? "Publish settings" : "Publish now"}</Act></>,
     analytics: <><List items={[["Status", live ? "Live" : "Not published"], ["Pages", String(code.filter(([p]) => p.endsWith(".html")).length)], ["Published", project.published_at ? new Date(project.published_at).toLocaleDateString() : "—"]]} />
-      <Info>Visitor counting for your published apps is not switched on yet. Ask the AI in chat to "add a visitor counter" if you want one inside your app.</Info></>,
+      <VisitorStats projectId={project.id} /></>,
     database: <><List items={[["Saves data in browser", uses(/localStorage|indexedDB/) ? "Yes" : "No"], ["Storage type", "Each visitor's own device"]]} /><Info>Ask the AI to "save high scores" or "save form entries" and it will add data saving to your app.</Info></>,
     users: <><List items={[["Login in app", uses(/login|sign ?in|password/i) ? "Has a login screen" : "No login"]]} /><Info>Ask the AI to "add a login screen" to let your app's visitors create accounts.</Info></>,
     storage: <>{images.length ? <List items={images.map(([p]) => [p, "image"])} /> : <Info>No images uploaded yet. Use the + button in chat to add pictures.</Info>}</>,
