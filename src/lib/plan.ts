@@ -1,16 +1,23 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Free plan rules (also enforced in the database). */
+/** Plan rules (also enforced in the database). */
+export const CREDITS_PER_CHANGE = 2;
+export const CREDITS_PER_PUBLISH = 2;
 export const FREE_DAILY_CREDITS = 10;
 export const FREE_MONTHLY_CREDITS = 100;
 export const FREE_DAILY_CHATS = 100;
-export const PREMIUM_PRICE_USD = 25;
-export const PREMIUM_MONTHLY_PUBLISHES = 10;
+export const PLANS = {
+  pro: { name: "Pro", price: 25, credits: 1000, publishes: 5 },
+  pro_plus: { name: "Pro Plus", price: 50, credits: 5000, publishes: 10 },
+} as const;
+export const PREMIUM_PRICE_USD = PLANS.pro.price;
 
 export type Quota = {
+  plan: "free" | "pro" | "pro_plus" | "admin";
   premium: boolean; admin: boolean;
   builds_today: number; builds_month: number; chats_today: number;
+  daily_limit: number; monthly_limit: number; first_publish_free: boolean;
   publish: { used: number; allowed: number };
 };
 
@@ -26,7 +33,10 @@ export const quotaQuery = queryOptions({
 
 export function useQuota() { return useQuery(quotaQuery); }
 
-/** Credits left today for a free user: the smaller of today's and this month's remaining. */
+/** Credits left right now; -1 means unlimited. */
 export function creditsLeft(q: Quota) {
-  return Math.max(0, Math.min(FREE_DAILY_CREDITS - q.builds_today, FREE_MONTHLY_CREDITS - q.builds_month));
+  if (q.monthly_limit < 0) return -1;
+  const month = q.monthly_limit - q.builds_month;
+  const day = q.daily_limit < 0 ? month : q.daily_limit - q.builds_today;
+  return Math.max(0, Math.min(day, month));
 }

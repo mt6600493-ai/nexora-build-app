@@ -115,8 +115,8 @@ export const Route = createFileRoute("/api/generate")({
         const q = quota as { ok?: boolean; reason?: string } | null;
         if (q && q.ok === false) {
           const msg = q.reason === "chat" ? "LIMIT:You've used today's free chat messages. They refresh at midnight (Pakistan time), or upgrade to Premium for unlimited chat."
-            : q.reason === "monthly" ? "LIMIT:You've used this month's 100 free credits. Upgrade to Premium for unlimited building."
-            : "LIMIT:You've used today's 10 free credits. They refresh at midnight (Pakistan time), or upgrade to Premium for unlimited building. Chat mode is still free.";
+            : q.reason === "monthly" ? "LIMIT:You've used this month's credits. Each change costs 2 credits. Upgrade your plan for more."
+            : "LIMIT:You've used today's 10 free credits (2 per change). They refresh at midnight (Pakistan time). Chat mode is still free.";
           return json(402, msg);
         }
 

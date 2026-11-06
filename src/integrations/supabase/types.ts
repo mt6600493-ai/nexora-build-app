@@ -296,6 +296,7 @@ export type Database = {
       }
       my_quota: { Args: never; Returns: Json }
       pk_today: { Args: never; Returns: string }
+      plan_of: { Args: { _uid: string }; Returns: string }
       project_stats: { Args: { _project: string }; Returns: Json }
       publish_allowance: { Args: { _uid: string }; Returns: Json }
       record_visit: {

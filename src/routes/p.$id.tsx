@@ -50,6 +50,15 @@ function PublishedPage() {
   const [page, setPage] = useState("index.html");
   const srcDoc = useMemo(() => buildPreview(project.files, page), [project.files, page]);
 
+  const { id: slug } = Route.useParams();
+  useEffect(() => {
+    const id = idFromSlug(slug);
+    if (!id || sessionStorage.getItem("nx-v-" + id)) return;
+    sessionStorage.setItem("nx-v-" + id, "1");
+    const device = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop";
+    import("@/integrations/supabase/client").then(({ supabase }) => supabase.rpc("record_visit", { _project: id, _device: device }));
+  }, [slug]);
+
   useEffect(() => {
     const h = (e: MessageEvent) => {
       if (e.data?.type === "nexora-nav") setPage(String(e.data.href).replace(/^\.?\//, "").split("?")[0] || "index.html");

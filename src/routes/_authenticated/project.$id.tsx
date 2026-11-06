@@ -27,7 +27,10 @@ import { createSaveQueue, type SaveState } from "@/lib/save-queue";
 import { externalizeAssets, hasInlineImages, isAssetRef, loadAssets, resolveAssets, type AssetMap } from "@/lib/assets";
 import { ProjectOverview } from "@/components/ProjectOverview";
 import { SellAndConnect } from "@/components/SellAndConnect";
-import { Github } from "lucide-react";
+import { Github, X, Hammer, MessagesSquare } from "lucide-react";
+import { PricingDialog } from "@/components/PricingDialog";
+import { quotaQuery } from "@/lib/plan";
+import { supabase } from "@/integrations/supabase/client";
 import { buildPreview, filesHash, filesToZip, parseGenerated, type FileMap } from "@/lib/files";
 import { streamGenerate } from "@/lib/generate";
 import { PlusMenu } from "@/components/PlusMenu";
@@ -78,6 +81,9 @@ function Workspace() {
   const [full, setFull] = useState(false);
   const { user } = useAuth();
   const [sellOpen, setSellOpen] = useState(false);
+  const [mode, setMode] = useState<"build" | "chat">("build");
+  const modeRef = useRef(mode); modeRef.current = mode;
+  const [pricing, setPricing] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const started = useRef(false);
@@ -167,15 +173,18 @@ function Workspace() {
     abortRef.current = ctrl;
     setStreaming("");
     setPreviewErr(null);
-    const { text, error } = await streamGenerate(history, baseFiles, (t) => setStreaming(t), ctrl.signal, images);
+    const { text, error } = await streamGenerate(history, baseFiles, (t) => setStreaming(t), ctrl.signal, images, modeRef.current);
+    qc.invalidateQueries({ queryKey: quotaQuery.queryKey });
+    if (error?.startsWith("LIMIT:")) setPricing(error.slice(6));
     abortRef.current = null;
     setStreaming(null);
-    const { files: out, summary } = parseGenerated(text);
+    const parsed = modeRef.current === "chat" ? { files: {} as FileMap, summary: text.trim() } : parseGenerated(text);
+    const { files: out, summary } = parsed;
     const changed = Object.keys(out);
     let nextFiles = baseFiles;
     let reply: ChatMsg;
     if (error && changed.length === 0) {
-      reply = { role: "assistant", content: `**Generation failed:** ${error}`, error: true };
+      reply = { role: "assistant", content: `**Generation failed:** ${error.replace(/^LIMIT:/, "")}`, error: true };
     } else if (changed.length === 0) {
       reply = { role: "assistant", content: summary || "I didn't change any files. Could you describe what you'd like in more detail?" };
     } else {
@@ -191,7 +200,7 @@ function Workspace() {
     setMessages(nextMsgs);
     await persist({ files: nextFiles, messages: nextMsgs });
     taRef.current?.focus();
-  }, [active, persist, user, id]);
+  }, [active, persist, user, id, qc]);
 
   useEffect(() => {
     if (!project || started.current) return;
@@ -273,6 +282,10 @@ function Workspace() {
   /** Publish the current files as the live version (the live page keeps this snapshot until the next publish). */
   async function publish() {
     if (!project) return false;
+    const { data: c } = await supabase.rpc("consume_ai", { _kind: "publish" });
+    const cr = c as { ok?: boolean; reason?: string } | null;
+    if (cr && cr.ok === false) { setPricing("You need 2 credits to publish. Your first publish is free; after that each publish costs 2 credits."); return false; }
+    qc.invalidateQueries({ queryKey: quotaQuery.queryKey });
     const published_hash = filesHash(files);
     const published_at = new Date().toISOString();
     const ok = await persist({ visibility: "public", published_files: files, published_hash, published_at });
@@ -399,6 +412,10 @@ function Workspace() {
             <div className="flex items-center gap-1">
               <PlusMenu disabled={streaming !== null} onFiles={attach} />
               <VoiceButton disabled={streaming !== null} onText={(t) => setInput((p) => (p ? p.trimEnd() + " " : "") + t)} onDone={() => taRef.current?.focus()} />
+              <div className="flex rounded-full bg-muted p-0.5 text-[11px]">
+                <button type="button" onClick={() => setMode("build")} className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${mode === "build" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Hammer className="h-3 w-3" />Build</button>
+                <button type="button" onClick={() => setMode("chat")} className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${mode === "chat" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><MessagesSquare className="h-3 w-3" />Chat</button>
+              </div>
               <span className="hidden px-1 text-[11px] text-muted-foreground sm:inline">Enter to send · any language</span>
             </div>
             {streaming !== null ? (
@@ -485,31 +502,27 @@ function Workspace() {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-3">
-        <Link to="/dashboard" aria-label="Back" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-        <LogoMark className="h-7 w-7" />
-        <div className="min-w-0">
-          <button onClick={() => setOverviewOpen(true)} className="flex max-w-full items-center gap-1 text-left text-sm font-semibold hover:text-glow" aria-label="Project overview">
+      <header className="grid h-14 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-border px-3">
+        <Link to="/dashboard" aria-label="Close project" className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur hover:text-foreground"><X className="h-4 w-4" /></Link>
+        <div className="flex min-w-0 flex-col items-center">
+          <button onClick={() => setOverviewOpen(true)} className="flex max-w-full items-center gap-1 rounded-full border border-border bg-card/60 px-4 py-1.5 text-sm font-semibold backdrop-blur hover:text-glow" aria-label="Project menu">
             <span className="truncate">{project.name}</span><ChevronDown className="h-3.5 w-3.5 shrink-0" />
           </button>
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            {saveState === "saving" ? <><CloudUpload className="h-3 w-3 animate-pulse" />Saving to cloud…</>
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            {saveState === "saving" ? <><CloudUpload className="h-3 w-3 animate-pulse" />Saving…</>
               : saveState === "error" ? <button onClick={() => queue.retry()} className="flex items-center gap-1 text-destructive"><CloudOff className="h-3 w-3" />Not saved — tap to retry</button>
-              : <><Cloud className="h-3 w-3 text-success" />Saved to cloud · {Object.keys(files).length} files</>}
+              : <><Cloud className="h-3 w-3 text-success" />Saved</>}
           </div>
         </div>
-        <div className="mx-auto hidden items-center gap-1 rounded-lg bg-muted p-0.5 md:flex">
-          <button onClick={() => setView("preview")} className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm ${view === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Eye className="h-4 w-4" />Preview</button>
-          <button onClick={() => setView("code")} className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm ${view === "code" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Code2 className="h-4 w-4" />Code</button>
-        </div>
-        <div className="ml-auto flex items-center gap-2 md:ml-0">
-          <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} aria-label="Project settings"><Settings className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={exportZip} className="hidden sm:inline-flex"><Download className="h-4 w-4" />Export</Button>
-          <Button variant="outline" size="sm" onClick={() => setSellOpen(true)}><Github className="h-4 w-4" /><span className="hidden sm:inline">GitHub, Domain & Sell</span></Button>
-          <Button size="sm" className={isLive && !hasUnpublished ? "" : "bg-brand"} variant={isLive && !hasUnpublished ? "outline" : "default"} onClick={() => setDeployOpen(true)}>
-            {hasUnpublished ? <span className="relative flex h-2 w-2"><span className="absolute h-2 w-2 animate-ping rounded-full bg-primary-foreground/70" /><span className="h-2 w-2 rounded-full bg-primary-foreground" /></span> : isLive ? <Globe className="h-4 w-4 text-success" /> : <Rocket className="h-4 w-4" />}
-            <span>{hasUnpublished ? "Publish changes" : isLive ? "Published" : <><span className="sm:hidden">Publish</span><span className="hidden sm:inline">Publish free on Google</span></>}</span>
+        <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-1 rounded-lg bg-muted p-0.5 md:flex">
+            <button onClick={() => setView("preview")} aria-label="Preview" className={`rounded-md px-2 py-1 ${view === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Eye className="h-4 w-4" /></button>
+            <button onClick={() => setView("code")} aria-label="Code" className={`rounded-md px-2 py-1 ${view === "code" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><Code2 className="h-4 w-4" /></button>
+          </div>
+          <Button size="sm" className={isLive && !hasUnpublished ? "" : "bg-brand"} variant={isLive && !hasUnpublished ? "outline" : "default"}
+            onClick={() => { if (isLive && !hasUnpublished) setDeployOpen(true); else publish(); }}>
+            {isLive && !hasUnpublished ? <Globe className="h-4 w-4 text-success" /> : <Rocket className="h-4 w-4" />}
+            <span>{hasUnpublished ? "Publish changes" : isLive ? "Live" : "Publish"}</span>
           </Button>
         </div>
       </header>
@@ -530,6 +543,8 @@ function Workspace() {
 
       <ProjectOverview open={overviewOpen} onOpenChange={setOverviewOpen} project={project} files={files} saveState={saveState} hasUnpublished={hasUnpublished}
         onAction={(a) => { if (a === "settings") setSettingsOpen(true); else if (a === "history") setHistoryOpen(true); else if (a === "publish") setDeployOpen(true); else if (a === "github") setSellOpen(true); else exportZip(); }} />
+
+      <PricingDialog open={pricing !== null} onOpenChange={(o) => !o && setPricing(null)} reason={pricing ?? undefined} />
 
       <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} projectId={id} onRestore={restoreVersion} />
 
