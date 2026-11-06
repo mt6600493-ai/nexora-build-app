@@ -9,7 +9,7 @@ const TIERS = [
   { name: PLANS.pro_plus.name, price: PLANS.pro_plus.price, features: [`${PLANS.pro_plus.credits.toLocaleString()} credits every month`, `${PLANS.pro_plus.publishes} app publishes per month`, "Fastest pro AI for 3D games", "Priority support"], live: false },
 ];
 
-export function PricingDialog({ open, onOpenChange, reason }: { open: boolean; onOpenChange: (o: boolean) => void; reason?: string }) {
+export function PricingDialog({ open, onOpenChange, reason }: { open: boolean; onOpenChange: (o: boolean) => void; reason?: string | undefined }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
